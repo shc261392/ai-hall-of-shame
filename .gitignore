@@ -1,10 +1,38 @@
-node_modules
-.svelte-kit
-build
-.wrangler
+# Dependencies
+node_modules/
+
+# Build outputs
+.svelte-kit/
+build/
+dist/
+.vercel/
+.netlify/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Environment secrets
 .env
 .env.*
 !.env.example
-dist
+
+# OS & editor
 .DS_Store
+Thumbs.db
 *.local
+*.swp
+*~
+
+# IDE
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Caches
+.turbo/
+.cache/
+*.tsbuildinfo

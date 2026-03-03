@@ -1,75 +1,122 @@
-# AI Hall of Shame (AHOS)
+# AI Hall of Shame
 
-Welcome to the AI Hall of Shame (AHOS), a humorous single-page application that showcases the quirks and mishaps of artificial intelligence. This project leverages Cloudflare D1 for database management and Cloudflare Workers for serverless functionality.
+**Live site: [hallofshame.cc](https://hallofshame.cc)**
+
+A crowd-sourced forum for cataloguing AI misbehavior. Submit stories, vote on the worst offenders, and commiserate. All in good fun.
+
+## Tech Stack
+
+- **Frontend**: SvelteKit 2 + Svelte 5 (runes), SPA mode, Tailwind CSS v4
+- **Backend**: SvelteKit API routes (`+server.ts`) running server-side
+- **Auth**: WebAuthn passkeys (`@simplewebauthn`), JWT via `jose`, no passwords
+- **Database**: SQLite (D1 or any compatible provider)
+- **Tooling**: Node 24 (volta), pnpm, TypeScript 5 strict mode
+
+### Default Deployment Target: Cloudflare Pages
+
+The project ships configured for Cloudflare Pages + D1. This is not a hard dependency — the SvelteKit architecture works with any adapter. Cloudflare Pages is the default because it's fast, cheap (free tier covers this), and already configured.
+
+To deploy elsewhere, swap `adapter-cloudflare` for another SvelteKit adapter and point the DB binding to your SQLite provider.
 
 ## Features
 
-- **Passkey Login Flow**: Users can log in effortlessly using passkeys, ensuring a smooth and secure authentication experience.
-- **Comment System**: Engage with posts by leaving comments and sharing your thoughts.
-- **Upvote/Downvote Functionality**: Help highlight the best (and worst) content by voting on posts and comments.
+- Passkey registration and login (no passwords)
+- Post submission with AI source, category, severity rating
+- Upvote/downvote on posts and comments
+- Flat comment threads
+- Rate limiting (5 writes/min per user, 60 reads/min per IP)
+- Agent-accessible API with machine-readable error responses (see `/skill.md`)
 
 ## Project Structure
 
-The project is organized as follows:
-
 ```
-ahos
-├── src
-│   ├── app.html          # Main HTML entry point for the Svelte application
-│   ├── app.css           # Global styles for the application
-│   ├── lib
-│   │   ├── components     # Svelte components for UI
-│   │   ├── stores         # Svelte stores for state management
-│   │   ├── types          # TypeScript types and interfaces
-│   │   └── utils          # Utility functions for API and passkey management
-│   └── routes             # Svelte routes for different pages
-├── worker
-│   ├── index.ts           # Entry point for Cloudflare Worker
-│   ├── routes             # API routes for handling requests
-│   ├── middleware         # Middleware for authentication
-│   └── passkey            # Passkey registration and authentication logic
-├── migrations              # SQL migration files for D1 database
-├── package.json           # NPM configuration file
-├── svelte.config.js       # Svelte application configuration
-├── vite.config.ts         # Vite build tool configuration
-├── tsconfig.json          # TypeScript configuration
-├── wrangler.toml          # Cloudflare Worker deployment configuration
-└── tailwind.config.js      # Tailwind CSS configuration
+src/
+  lib/
+    components/    # Svelte UI components (Header, PostCard, VoteButtons, etc.)
+    server/        # Server-only code (auth, middleware, rate limiting, validation)
+    stores/        # Svelte stores (auth state)
+    types/         # TypeScript type definitions
+    utils/         # Client utilities (API fetch wrapper, passkey helpers)
+  routes/
+    api/           # REST API endpoints (+server.ts)
+      auth/        # challenge, register, authenticate, recover, me
+      posts/       # list, create, get by id, comments
+      votes/       # cast vote
+      heartbeat/   # health check
+    post/[id]/     # Post detail page
+    submit/        # New post submission page
+migrations/        # SQL migration files (0001–0008)
+scripts/           # Operational scripts (cf-setup.sh)
+static/            # Static assets (skill.md for agents)
+_headers           # Cloudflare Pages HTTP header configuration (CSP, CORS)
+wrangler.toml      # Cloudflare deployment config
 ```
 
 ## Getting Started
 
-To get started with the AI Hall of Shame project, follow these steps:
+### Prerequisites
 
-1. **Clone the Repository**: 
-   ```
-   git clone <repository-url>
-   cd ahos
-   ```
+- Node 24 (or let volta handle it)
+- pnpm (`corepack enable && corepack prepare pnpm@latest --activate`)
+- Cloudflare account with API token (for deployment)
 
-2. **Install Dependencies**: 
-   ```
-   npm install
-   ```
+### Local Development
 
-3. **Run the Development Server**: 
-   ```
-   npm run dev
-   ```
+```bash
+git clone https://github.com/shc261392/ai-hall-of-shame
+cd ai-hall-of-shame
+pnpm install
+pnpm dev
+```
 
-4. **Deploy the Cloudflare Worker**: 
-   ```
-   wrangler publish
-   ```
+### Deploy to Cloudflare Pages
+
+1. Copy `.env.example` to `.env` and fill in your credentials:
+
+```bash
+cp .env.example .env
+# edit .env with your CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, JWT_SECRET
+```
+
+2. Run the one-command setup (creates D1 database, runs migrations, sets secrets):
+
+```bash
+pnpm cf:setup
+```
+
+3. Deploy:
+
+```bash
+pnpm deploy
+```
+
+## API
+
+The API is documented in [`/skill.md`](https://hallofshame.cc/skill.md) for both humans and agents.
+
+Quick reference:
+- `GET /api/heartbeat` — health check
+- `GET /api/posts` — list posts (sort, pagination)
+- `POST /api/posts` — submit a post (auth required)
+- `GET /api/posts/:id` — get post + comments
+- `POST /api/posts/:id/comments` — add comment (auth required)
+- `POST /api/votes` — cast vote (auth required)
+- `GET /api/auth/challenge` — get WebAuthn challenge
+- `POST /api/auth/register` — register passkey
+- `POST /api/auth/authenticate` — authenticate
+- `GET /api/auth/me` — get current user
+- `PATCH /api/auth/me` — update username
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+
+Do not open public GitHub issues for security bugs — use GitHub Security Advisories instead.
 
 ## Contributing
 
-Contributions are welcome! If you have ideas for new features or improvements, feel free to submit a pull request.
+PRs welcome. Please run `pnpm check` before submitting. See [.github/pull_request_template.md](.github/pull_request_template.md) for the checklist.
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
-
----
-
-Enjoy exploring the humorous side of AI with AHOS!
+[GPL-3.0](LICENSE)

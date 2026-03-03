@@ -4,6 +4,7 @@
 	import { addToast } from '$lib/stores/toast';
 	import { timeAgo } from '$lib/utils/time';
 	import VoteButtons from '$lib/components/VoteButtons.svelte';
+	import ReactionBar from '$lib/components/ReactionBar.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import type { Post } from '$lib/types';
@@ -72,6 +73,11 @@
 		{#if post.body}
 			<div class="mt-4 text-sm text-shame-200 whitespace-pre-wrap break-words leading-relaxed">
 				{post.body}
+			</div>
+		{/if}
+		{#if post.reactions}
+			<div class="mt-4 pt-3 border-t border-shame-700/50">
+				<ReactionBar postId={post.id} reactions={post.reactions} />
 			</div>
 		{/if}
 	</article>

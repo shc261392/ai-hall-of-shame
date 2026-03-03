@@ -1,13 +1,13 @@
-import { get } from 'svelte/store';
-import { auth, logout } from '$lib/stores/auth';
-import type { ApiError } from '$lib/types';
+import { get } from "svelte/store";
+import { auth, logout } from "$lib/stores/auth";
+import type { ApiError } from "$lib/types";
 
 class ApiClient {
 	private getHeaders(): HeadersInit {
-		const headers: HeadersInit = { 'Content-Type': 'application/json' };
+		const headers: HeadersInit = { "Content-Type": "application/json" };
 		const state = get(auth);
 		if (state.token) {
-			headers['Authorization'] = `Bearer ${state.token}`;
+			headers["Authorization"] = `Bearer ${state.token}`;
 		}
 		return headers;
 	}
@@ -25,18 +25,18 @@ class ApiClient {
 
 	async post<T>(path: string, body?: unknown): Promise<T> {
 		const res = await fetch(path, {
-			method: 'POST',
+			method: "POST",
 			headers: this.getHeaders(),
-			body: body ? JSON.stringify(body) : undefined
+			body: body ? JSON.stringify(body) : undefined,
 		});
 		return this.handle<T>(res);
 	}
 
 	async patch<T>(path: string, body: unknown): Promise<T> {
 		const res = await fetch(path, {
-			method: 'PATCH',
+			method: "PATCH",
 			headers: this.getHeaders(),
-			body: JSON.stringify(body)
+			body: JSON.stringify(body),
 		});
 		return this.handle<T>(res);
 	}
@@ -47,8 +47,8 @@ class ApiClient {
 		}
 		if (!res.ok) {
 			const err = (await res.json().catch(() => ({
-				error: 'unknown',
-				message: `Request failed with status ${res.status}`
+				error: "unknown",
+				message: `Request failed with status ${res.status}`,
 			}))) as ApiError;
 			throw err;
 		}

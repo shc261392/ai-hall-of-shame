@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Post } from '$lib/types';
 	import VoteButtons from './VoteButtons.svelte';
+	import ReactionBar from './ReactionBar.svelte';
 	import { timeAgo } from '$lib/utils/time';
 
 	interface Props {
@@ -42,6 +43,13 @@
 				<span>·</span>
 				<span>💬 {post.commentCount}</span>
 			</div>
+			{#if post.reactions}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<div class="mt-2" onclick={(e) => e.preventDefault()}>
+					<ReactionBar postId={post.id} reactions={post.reactions} />
+				</div>
+			{/if}
 		</div>
 	</div>
 </a>

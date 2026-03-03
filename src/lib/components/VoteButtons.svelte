@@ -79,6 +79,7 @@
 			? 'text-flame-500'
 			: 'text-shame-300 hover:text-flame-400'}"
 		aria-label="Upvote"
+		title="Upvote — this post is funny, educational, or a well-documented AI fail"
 	>
 		<svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
 			<path d="M10 3l7 7h-4v7H7v-7H3l7-7z" />
@@ -93,6 +94,7 @@
 			? 'text-ice-500'
 			: 'text-shame-300 hover:text-ice-400'}"
 		aria-label="Downvote"
+		title="Downvote — this post is low-effort, off-topic, or not actually an AI fail"
 	>
 		<svg class="w-5 h-5 rotate-180" viewBox="0 0 20 20" fill="currentColor">
 			<path d="M10 3l7 7h-4v7H7v-7H3l7-7z" />

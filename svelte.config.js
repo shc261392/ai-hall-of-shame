@@ -5,7 +5,13 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			platformProxy: {
+				configPath: 'wrangler.toml',
+				experimentalJsonConfig: false,
+				persist: { path: '.wrangler/state/v3' }
+			}
+		}),
 		alias: {
 			$lib: './src/lib'
 		}

@@ -1,7 +1,7 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify } from "jose";
 
-const JWT_EXPIRY = '7d';
-const JWT_ALGORITHM = 'HS256';
+const JWT_EXPIRY = "7d";
+const JWT_ALGORITHM = "HS256";
 
 interface JwtPayload {
 	sub: string;
@@ -11,7 +11,7 @@ interface JwtPayload {
 export async function signToken(
 	userId: string,
 	username: string,
-	secret: string
+	secret: string,
 ): Promise<string> {
 	const key = new TextEncoder().encode(secret);
 	return new SignJWT({ sub: userId, username } satisfies JwtPayload)
@@ -23,14 +23,17 @@ export async function signToken(
 
 export async function verifyToken(
 	token: string,
-	secret: string
+	secret: string,
 ): Promise<JwtPayload | null> {
 	try {
 		const key = new TextEncoder().encode(secret);
 		const { payload } = await jwtVerify(token, key, {
-			algorithms: [JWT_ALGORITHM]
+			algorithms: [JWT_ALGORITHM],
 		});
-		if (typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
+		if (
+			typeof payload.sub !== "string" ||
+			typeof payload.username !== "string"
+		) {
 			return null;
 		}
 		return { sub: payload.sub, username: payload.username as string };
@@ -40,14 +43,14 @@ export async function verifyToken(
 }
 
 export function getAuthToken(request: Request): string | null {
-	const header = request.headers.get('Authorization');
-	if (!header?.startsWith('Bearer ')) return null;
+	const header = request.headers.get("Authorization");
+	if (!header?.startsWith("Bearer ")) return null;
 	return header.slice(7);
 }
 
 export async function getAuthUser(
 	request: Request,
-	secret: string
+	secret: string,
 ): Promise<JwtPayload | null> {
 	const token = getAuthToken(request);
 	if (!token) return null;
@@ -56,15 +59,15 @@ export async function getAuthUser(
 
 export async function hashBackupCode(code: string): Promise<string> {
 	const data = new TextEncoder().encode(code);
-	const hash = await crypto.subtle.digest('SHA-256', data);
+	const hash = await crypto.subtle.digest("SHA-256", data);
 	return Array.from(new Uint8Array(hash))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
+		.map((b) => b.toString(16).padStart(2, "0"))
+		.join("");
 }
 
 export async function verifyBackupCode(
 	provided: string,
-	storedHash: string
+	storedHash: string,
 ): Promise<boolean> {
 	const providedHash = await hashBackupCode(provided);
 	const a = new TextEncoder().encode(providedHash);
@@ -85,10 +88,10 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 export function generateBackupCode(): string {
 	const bytes = new Uint8Array(24);
 	crypto.getRandomValues(bytes);
-	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-	let code = '';
+	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+	let code = "";
 	for (let i = 0; i < 32; i++) {
 		code += chars[bytes[i % 24] % chars.length];
 	}
-	return code.match(/.{4}/g)!.join('-');
+	return code.match(/.{4}/g)!.join("-");
 }

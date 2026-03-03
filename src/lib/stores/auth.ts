@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable } from "svelte/store";
 
 interface AuthState {
 	token: string | null;
@@ -6,10 +6,11 @@ interface AuthState {
 	userId: string | null;
 }
 
-const STORAGE_KEY = 'ahos_auth';
+const STORAGE_KEY = "ahos_auth";
 
 function loadFromStorage(): AuthState {
-	if (typeof sessionStorage === 'undefined') return { token: null, username: null, userId: null };
+	if (typeof sessionStorage === "undefined")
+		return { token: null, username: null, userId: null };
 	try {
 		const raw = sessionStorage.getItem(STORAGE_KEY);
 		if (!raw) return { token: null, username: null, userId: null };
@@ -20,7 +21,7 @@ function loadFromStorage(): AuthState {
 }
 
 function saveToStorage(state: AuthState) {
-	if (typeof sessionStorage === 'undefined') return;
+	if (typeof sessionStorage === "undefined") return;
 	if (state.token) {
 		sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 	} else {
@@ -45,6 +46,6 @@ export function updateUsername(username: string, token?: string) {
 	auth.update((s) => ({
 		...s,
 		username,
-		token: token ?? s.token
+		token: token ?? s.token,
 	}));
 }

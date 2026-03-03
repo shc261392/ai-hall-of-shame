@@ -8,7 +8,10 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "dev:setup": "wrangler d1 migrations apply ahos-db --local",
+    "cf:setup": "bash scripts/cf-setup.sh",
+    "deploy": "pnpm build && npx wrangler pages deploy .svelte-kit/cloudflare --project-name=ahos"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.2.2",

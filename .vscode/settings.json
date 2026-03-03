@@ -1,0 +1,21 @@
+{
+    "files.exclude": {
+        ".env": true,
+        ".env.local": true,
+        ".env.*.local": true
+    },
+    "search.exclude": {
+        ".env": true,
+        ".env.local": true,
+        ".env.*.local": true,
+        "node_modules": true,
+        ".svelte-kit": true,
+        "dist": true
+    },
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true,
+        "**/.svelte-kit/**": true
+    }
+}

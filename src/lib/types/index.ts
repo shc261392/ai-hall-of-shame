@@ -4,6 +4,24 @@ export interface User {
 	created_at: number;
 }
 
+export const REACTION_EMOJIS = ['😈', '❓', '💀', '🤦', '🔥'] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+
+export const REACTION_LABELS: Record<ReactionEmoji, string> = {
+	'😈': 'Bad AI!',
+	'❓': 'Huh?',
+	'💀': 'Killed It',
+	'🤦': 'Facepalm',
+	'🔥': 'Dumpster Fire'
+};
+
+export interface ReactionCount {
+	emoji: ReactionEmoji;
+	label: string;
+	count: number;
+	userReacted: boolean;
+}
+
 export interface Post {
 	id: string;
 	userId: string;
@@ -15,6 +33,7 @@ export interface Post {
 	commentCount: number;
 	createdAt: number;
 	userVote?: number | null;
+	reactions?: ReactionCount[];
 }
 
 export interface Comment {
@@ -36,7 +55,7 @@ export interface AuthPayload {
 	backupCode?: string;
 }
 
-export type SortOption = 'trending' | 'top' | 'latest';
+export type SortOption = "trending" | "top" | "latest";
 
 export interface ApiError {
 	error: string;
