@@ -1,0 +1,14 @@
+/// <reference types="@sveltejs/kit" />
+/// <reference types="@cloudflare/workers-types" />
+
+declare namespace App {
+	interface Platform {
+		env: {
+			DB: D1Database;
+			JWT_SECRET: string;
+			WEBAUTHN_RP_ID: string;
+			WEBAUTHN_RP_NAME: string;
+		};
+		context: ExecutionContext;
+	}
+}

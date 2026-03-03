@@ -1,0 +1,5 @@
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - workerd
+  - '@cloudflare/workerd-linux-64'

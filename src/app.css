@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+
+@theme {
+	/* ── Base surfaces ── */
+	--color-shame-950: #0a0a0f;
+	--color-shame-900: #12121a;
+	--color-shame-800: #1a1a2e;
+	--color-shame-700: #252540;
+	--color-shame-600: #3a3a5c;
+
+	/* ── Text ── */
+	--color-shame-100: #e8e8f0;
+	--color-shame-200: #b8b8cc;
+	--color-shame-300: #8888a0;
+
+	/* ── Accent: Electric Magenta ── */
+	--color-neon-500: #e040fb;
+	--color-neon-400: #ea80fc;
+	--color-neon-600: #aa00d4;
+
+	/* ── Upvote: Flame Orange ── */
+	--color-flame-500: #ff6b35;
+	--color-flame-400: #ff8a5c;
+
+	/* ── Downvote: Ice Blue ── */
+	--color-ice-500: #4fc3f7;
+	--color-ice-400: #81d4fa;
+
+	/* ── Semantic ── */
+	--color-success-500: #66bb6a;
+	--color-warning-500: #ffa726;
+	--color-error-500: #ef5350;
+}
+
+html {
+	background-color: var(--color-shame-950);
+	color: var(--color-shame-100);
+}
+
+body {
+	font-family: system-ui, -apple-system, sans-serif;
+	min-height: 100dvh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
