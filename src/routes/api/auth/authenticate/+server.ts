@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import { dev } from "$app/environment";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import type { RequestHandler } from "./$types";
 import { signToken } from "$lib/server/auth";
@@ -9,27 +10,32 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const db = platform!.env.DB;
 	const ip = getClientIp(request);
 	const rpId = platform!.env.WEBAUTHN_RP_ID;
+	const expectedOrigin =
+		platform!.env.WEBAUTHN_ORIGIN ??
+		(dev ? "http://localhost:5173" : `https://${rpId}`);
 
-	// Rate limit by IP
-	const ban = await checkBan(db, `ip:${ip}`);
-	if (ban.banned) {
-		return jsonError(
-			403,
-			"banned",
-			`IP suspended. Ban expires: ${ban.expiresAt}`,
-			{ expires_at: ban.expiresAt },
-		);
-	}
-	const limit = await checkRateLimit(db, `ip:${ip}`, true);
-	if (!limit.allowed) {
-		return jsonError(
-			429,
-			"rate_limited",
-			`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
-			{
-				retry_after_seconds: limit.retryAfterSeconds,
-			},
-		);
+	if (!dev) {
+		// Rate limit by IP
+		const ban = await checkBan(db, `ip:${ip}`);
+		if (ban.banned) {
+			return jsonError(
+				403,
+				"banned",
+				`IP suspended. Ban expires: ${ban.expiresAt}`,
+				{ expires_at: ban.expiresAt },
+			);
+		}
+		const limit = await checkRateLimit(db, `ip:${ip}`, true);
+		if (!limit.allowed) {
+			return jsonError(
+				429,
+				"rate_limited",
+				`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
+				{
+					retry_after_seconds: limit.retryAfterSeconds,
+				},
+			);
+		}
 	}
 
 	let body: { challengeId: string; assertion: unknown };
@@ -99,7 +105,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				typeof verifyAuthenticationResponse
 			>[0]["response"],
 			expectedChallenge: challengeRow.challenge,
-			expectedOrigin: `https://${rpId}`,
+			expectedOrigin,
 			expectedRPID: rpId,
 			requireUserVerification: true,
 			credential: {

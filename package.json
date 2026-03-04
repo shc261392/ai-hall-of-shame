@@ -9,6 +9,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui",
+    "test:report": "playwright show-report",
     "dev:setup": "wrangler d1 migrations apply ahos-db --local",
     "cf:setup": "bash scripts/cf-setup.sh",
     "deploy": "pnpm build && npx wrangler pages deploy .svelte-kit/cloudflare --project-name=ahos"
@@ -22,6 +26,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260305.0",
+    "@playwright/test": "^1.58.2",
     "@sveltejs/adapter-cloudflare": "^7.2.8",
     "@sveltejs/kit": "^2.53.4",
     "@sveltejs/vite-plugin-svelte": "^6.2.4",

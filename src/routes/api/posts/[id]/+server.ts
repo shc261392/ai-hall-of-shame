@@ -1,7 +1,11 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { guardGet, jsonError } from "$lib/server/middleware";
-import { REACTION_EMOJIS, REACTION_LABELS, type ReactionEmoji } from "$lib/types";
+import {
+	REACTION_EMOJIS,
+	REACTION_LABELS,
+	type ReactionEmoji,
+} from "$lib/types";
 
 export const GET: RequestHandler = async (event) => {
 	const guard = await guardGet(event);
@@ -35,7 +39,9 @@ export const GET: RequestHandler = async (event) => {
 
 	// Get reaction counts
 	const { results: reactionCounts } = await db
-		.prepare("SELECT emoji, COUNT(*) as count FROM reactions WHERE post_id = ? GROUP BY emoji")
+		.prepare(
+			"SELECT emoji, COUNT(*) as count FROM reactions WHERE post_id = ? GROUP BY emoji",
+		)
 		.bind(postId)
 		.all<{ emoji: string; count: number }>();
 

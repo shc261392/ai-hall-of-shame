@@ -3,7 +3,11 @@ import { nanoid } from "nanoid";
 import type { RequestHandler } from "./$types";
 import { guardGet, guardPost, jsonError } from "$lib/server/middleware";
 import { postCreateSchema, paginationSchema } from "$lib/server/validation";
-import { REACTION_EMOJIS, REACTION_LABELS, type ReactionEmoji } from "$lib/types";
+import {
+	REACTION_EMOJIS,
+	REACTION_LABELS,
+	type ReactionEmoji,
+} from "$lib/types";
 
 const SORT_QUERIES = {
 	trending: `SELECT p.*, u.username,
@@ -86,7 +90,8 @@ export const GET: RequestHandler = async (event) => {
 				.all<{ post_id: string; emoji: string }>();
 
 			for (const r of userRxData) {
-				if (!userReactionsByPost[r.post_id]) userReactionsByPost[r.post_id] = new Set();
+				if (!userReactionsByPost[r.post_id])
+					userReactionsByPost[r.post_id] = new Set();
 				userReactionsByPost[r.post_id].add(r.emoji);
 			}
 		}

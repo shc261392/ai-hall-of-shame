@@ -1,0 +1,8 @@
+# Copy this to .dev.vars for local development (it is gitignored)
+# Run: cp .dev.vars.example .dev.vars
+# Then: pnpm dev:setup && pnpm dev
+JWT_SECRET=change-me-local-dev-only
+WEBAUTHN_RP_ID=localhost
+WEBAUTHN_RP_NAME=AI Hall of Shame (dev)
+WEBAUTHN_ORIGIN=http://localhost:5173
+ENVIRONMENT=development

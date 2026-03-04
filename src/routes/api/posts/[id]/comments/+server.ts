@@ -63,15 +63,7 @@ export const POST: RequestHandler = async (event) => {
 	const postId = event.params.id;
 	const db = event.platform!.env.DB;
 
-	// Verify post exists
-	const post = await db
-		.prepare("SELECT 1 FROM posts WHERE id = ?")
-		.bind(postId)
-		.first();
-	if (!post) {
-		return jsonError(404, "not_found", "Post not found");
-	}
-
+	// Validate body before DB lookup
 	let body: unknown;
 	try {
 		body = await event.request.json();
@@ -82,6 +74,15 @@ export const POST: RequestHandler = async (event) => {
 	const parsed = commentCreateSchema.safeParse(body);
 	if (!parsed.success) {
 		return jsonError(400, "validation_error", parsed.error.issues[0].message);
+	}
+
+	// Verify post exists
+	const post = await db
+		.prepare("SELECT 1 FROM posts WHERE id = ?")
+		.bind(postId)
+		.first();
+	if (!post) {
+		return jsonError(404, "not_found", "Post not found");
 	}
 
 	const commentId = nanoid();

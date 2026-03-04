@@ -1,5 +1,6 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { json } from "@sveltejs/kit";
+import { dev } from "$app/environment";
 import { getAuthUser } from "./auth";
 import {
 	checkBan,
@@ -9,10 +10,10 @@ import {
 } from "./ratelimit";
 
 export function getClientIp(request: Request): string {
-	return (
-		request.headers.get("CF-Connecting-IP") ||
-		request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
-		"unknown"
+        return (
+                request.headers.get("CF-Connecting-IP") ||
+                request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
+                (dev ? "127.0.0.1" : "unknown")
 	);
 }
 
@@ -31,7 +32,7 @@ export async function guardPost(event: RequestEvent) {
 	const db = platform!.env.DB;
 	const ip = getClientIp(request);
 
-	// Reject if no IP (direct access bypassing CF)
+	// Reject if no IP (direct access bypassing CF) — skip in dev
 	if (ip === "unknown") {
 		return {
 			error: jsonError(403, "forbidden", "Request must go through Cloudflare"),
@@ -50,46 +51,48 @@ export async function guardPost(event: RequestEvent) {
 		};
 	}
 
-	// Check bans (user + IP)
-	for (const identifier of [user.sub, `ip:${ip}`]) {
-		const ban = await checkBan(db, identifier);
-		if (ban.banned) {
-			return {
-				error: jsonError(
-					403,
-					"banned",
-					`Account suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
-					{
-						expires_at: ban.expiresAt,
-					},
-				),
-			};
+	if (!dev) {
+		// Check bans (user + IP)
+		for (const identifier of [user.sub, `ip:${ip}`]) {
+			const ban = await checkBan(db, identifier);
+			if (ban.banned) {
+				return {
+					error: jsonError(
+						403,
+						"banned",
+						`Account suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
+						{
+							expires_at: ban.expiresAt,
+						},
+					),
+				};
+			}
 		}
-	}
 
-	// Rate limit (user + IP)
-	for (const identifier of [user.sub, `ip:${ip}`]) {
-		const limit = await checkRateLimit(db, identifier, true);
-		if (!limit.allowed) {
-			return {
-				error: jsonError(
-					429,
-					"rate_limited",
-					`Too many requests. You can make 5 POST requests per minute. Retry in ${limit.retryAfterSeconds}s.`,
-					{
-						retry_after_seconds: limit.retryAfterSeconds,
-					},
-				),
-			};
+		// Rate limit (user + IP)
+		for (const identifier of [user.sub, `ip:${ip}`]) {
+			const limit = await checkRateLimit(db, identifier, true);
+			if (!limit.allowed) {
+				return {
+					error: jsonError(
+						429,
+						"rate_limited",
+						`Too many requests. You can make 5 POST requests per minute. Retry in ${limit.retryAfterSeconds}s.`,
+						{
+							retry_after_seconds: limit.retryAfterSeconds,
+						},
+					),
+				};
+			}
 		}
-	}
 
-	// Check for auto-ban after incrementing counters
-	await checkAndAutoBan(db, [user.sub, `ip:${ip}`]);
+		// Check for auto-ban after incrementing counters
+		await checkAndAutoBan(db, [user.sub, `ip:${ip}`]);
 
-	// Opportunistic cleanup (roughly 1 in 20 requests)
-	if (Math.random() < 0.05) {
-		event.platform!.context.waitUntil(cleanupExpiredData(db));
+		// Opportunistic cleanup (roughly 1 in 20 requests)
+		if (Math.random() < 0.05) {
+			event.platform!.context.waitUntil(cleanupExpiredData(db));
+		}
 	}
 
 	return { user, ip };
@@ -107,34 +110,36 @@ export async function guardGet(event: RequestEvent) {
 		};
 	}
 
-	// Check ban
-	const ban = await checkBan(db, `ip:${ip}`);
-	if (ban.banned) {
-		return {
-			error: jsonError(
-				403,
-				"banned",
-				`IP suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
-				{
-					expires_at: ban.expiresAt,
-				},
-			),
-		};
-	}
+	if (!dev) {
+		// Check ban
+		const ban = await checkBan(db, `ip:${ip}`);
+		if (ban.banned) {
+			return {
+				error: jsonError(
+					403,
+					"banned",
+					`IP suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
+					{
+						expires_at: ban.expiresAt,
+					},
+				),
+			};
+		}
 
-	// Lightweight rate limit for GETs
-	const limit = await checkRateLimit(db, `ip:${ip}`, false);
-	if (!limit.allowed) {
-		return {
-			error: jsonError(
-				429,
-				"rate_limited",
-				`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
-				{
-					retry_after_seconds: limit.retryAfterSeconds,
-				},
-			),
-		};
+		// Lightweight rate limit for GETs
+		const limit = await checkRateLimit(db, `ip:${ip}`, false);
+		if (!limit.allowed) {
+			return {
+				error: jsonError(
+					429,
+					"rate_limited",
+					`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
+					{
+						retry_after_seconds: limit.retryAfterSeconds,
+					},
+				),
+			};
+		}
 	}
 
 	// Optional auth (for user vote status)

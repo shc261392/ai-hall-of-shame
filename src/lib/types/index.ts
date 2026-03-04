@@ -4,15 +4,15 @@ export interface User {
 	created_at: number;
 }
 
-export const REACTION_EMOJIS = ['😈', '❓', '💀', '🤦', '🔥'] as const;
+export const REACTION_EMOJIS = ["😈", "❓", "💀", "🤦", "🔥"] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
 
 export const REACTION_LABELS: Record<ReactionEmoji, string> = {
-	'😈': 'Bad AI!',
-	'❓': 'Huh?',
-	'💀': 'Killed It',
-	'🤦': 'Facepalm',
-	'🔥': 'Dumpster Fire'
+	"😈": "Bad AI!",
+	"❓": "Huh?",
+	"💀": "Killed It",
+	"🤦": "Facepalm",
+	"🔥": "Dumpster Fire",
 };
 
 export interface ReactionCount {

@@ -8,6 +8,8 @@ declare namespace App {
 			JWT_SECRET: string;
 			WEBAUTHN_RP_ID: string;
 			WEBAUTHN_RP_NAME: string;
+			WEBAUTHN_ORIGIN?: string;
+			ENVIRONMENT?: string;
 		};
 		context: ExecutionContext;
 	}
