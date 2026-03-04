@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { trapFocus } from '$lib/utils/focus-trap';
+
 	interface Props {
 		code: string;
 		onclose: () => void;
@@ -10,13 +12,26 @@
 	async function copyCode() {
 		await navigator.clipboard.writeText(code);
 	}
+
+	function initFocusTrap(node: HTMLElement) {
+		const cleanup = trapFocus(node);
+		return { destroy: cleanup };
+	}
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-shame-950/80 backdrop-blur-sm">
-	<div class="mx-4 w-full max-w-sm rounded-xl border border-warning-500/50 bg-shame-900 p-6 shadow-2xl">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+	class="fixed inset-0 z-50 flex items-center justify-center bg-shame-950/80 backdrop-blur-sm"
+	role="dialog"
+	aria-modal="true"
+	aria-labelledby="backup-code-title"
+	tabindex="-1"
+	onkeydown={(e) => e.key === 'Escape' && confirmed && onclose()}
+>
+	<div class="mx-4 w-full max-w-sm rounded-xl border border-warning-500/50 bg-shame-900 p-6 shadow-2xl" use:initFocusTrap>
 		<div class="mb-4 text-center">
-			<span class="text-3xl">⚠️</span>
-			<h2 class="mt-2 text-lg font-bold text-warning-500">Save Your Backup Code</h2>
+			<span class="text-3xl" aria-hidden="true">⚠️</span>
+			<h2 id="backup-code-title" class="mt-2 text-lg font-bold text-warning-500">Save Your Backup Code</h2>
 			<p class="mt-1 text-sm text-shame-200">
 				This is the <strong>only way</strong> to recover your account if you lose your passkey.
 				It will not be shown again.

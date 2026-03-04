@@ -25,11 +25,11 @@
 			{#if $auth.token}
 				<button
 					onclick={handleProfileClick}
-					class="hidden sm:flex items-center gap-1.5 rounded-lg border border-shame-600 bg-shame-900/50 px-3 py-1.5 text-sm text-shame-200 hover:border-neon-500/50 hover:bg-shame-800 transition-colors"
+					class="flex items-center gap-1.5 rounded-lg border border-shame-600 bg-shame-900/50 px-3 py-1.5 text-sm text-shame-200 hover:border-neon-500/50 hover:bg-shame-800 transition-colors"
 					title="Click to edit profile"
 				>
 					<span>👤</span>
-					<span>{$auth.displayName || $auth.username}</span>
+					<span class="hidden sm:inline">{$auth.displayName || $auth.username}</span>
 				</button>
 				<a
 					href="/submit"

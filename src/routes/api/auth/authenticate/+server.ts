@@ -14,28 +14,26 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		platform!.env.WEBAUTHN_ORIGIN ??
 		(dev ? "http://localhost:5173" : `https://${rpId}`);
 
-	if (!dev) {
-		// Rate limit by IP
-		const ban = await checkBan(db, `ip:${ip}`);
-		if (ban.banned) {
-			return jsonError(
-				403,
-				"banned",
-				`IP suspended. Ban expires: ${ban.expiresAt}`,
-				{ expires_at: ban.expiresAt },
-			);
-		}
-		const limit = await checkRateLimit(db, `ip:${ip}`, true);
-		if (!limit.allowed) {
-			return jsonError(
-				429,
-				"rate_limited",
-				`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
-				{
-					retry_after_seconds: limit.retryAfterSeconds,
-				},
-			);
-		}
+	// Rate limit by IP
+	const ban = await checkBan(db, `ip:${ip}`);
+	if (ban.banned) {
+		return jsonError(
+			403,
+			"banned",
+			`IP suspended. Ban expires: ${ban.expiresAt}`,
+			{ expires_at: ban.expiresAt },
+		);
+	}
+	const limit = await checkRateLimit(db, `ip:${ip}`, true);
+	if (!limit.allowed) {
+		return jsonError(
+			429,
+			"rate_limited",
+			`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
+			{
+				retry_after_seconds: limit.retryAfterSeconds,
+			},
+		);
 	}
 
 	let body: { challengeId: string; assertion: unknown };

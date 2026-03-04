@@ -71,7 +71,7 @@
 {#if loading}
 	<LoadingSpinner />
 {:else if posts.length === 0}
-	<EmptyState message="No AI fails yet. Be the first to share one!" />
+	<EmptyState message="No AI fails yet. Be the first to share one!" actionHref="/submit" actionLabel="✨ Submit an AI Fail" />
 {:else}
 	<div class="space-y-3">
 		{#each posts as post (post.id)}

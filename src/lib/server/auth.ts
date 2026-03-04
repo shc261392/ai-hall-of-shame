@@ -88,12 +88,12 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 export function generateBackupCode(): string {
-	const bytes = new Uint8Array(24);
+	const bytes = new Uint8Array(32);
 	crypto.getRandomValues(bytes);
 	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 	let code = "";
 	for (let i = 0; i < 32; i++) {
-		code += chars[bytes[i % 24] % chars.length];
+		code += chars[bytes[i] % chars.length];
 	}
 	return code.match(/.{4}/g)!.join("-");
 }

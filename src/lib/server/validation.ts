@@ -11,8 +11,9 @@ export const postCreateSchema = z.object({
 	body: z
 		.string()
 		.trim()
-		.min(1, "Body is required")
-		.max(10000, "Body must be 10,000 characters or less"),
+		.max(10000, "Body must be 10,000 characters or less")
+		.optional()
+		.default(""),
 });
 
 export const commentCreateSchema = z.object({
@@ -56,6 +57,12 @@ export const voteSchema = z.object({
 export const reactionSchema = z.object({
 	postId: z.string().min(1),
 	emoji: z.enum(["😈", "❓", "💀", "🤦", "🔥"]),
+});
+
+export const reportSchema = z.object({
+	targetType: z.enum(["post", "comment"]),
+	targetId: z.string().min(1),
+	reason: z.string().trim().max(500).optional().default(""),
 });
 
 export const paginationSchema = z.object({

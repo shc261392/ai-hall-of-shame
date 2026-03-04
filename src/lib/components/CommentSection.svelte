@@ -20,6 +20,7 @@
 	let submitting = $state(false);
 
 	$effect(() => {
+		postId;
 		loadComments();
 	});
 
@@ -61,6 +62,7 @@
 			<MarkdownEditor
 				bind:value={body}
 				onchange={(val) => (body = val)}
+				label="Add a comment"
 				placeholder="Share your thoughts on this AI disaster... (Markdown supported)"
 				maxlength={5000}
 				rows={6}
@@ -84,7 +86,7 @@
 	{:else}
 		<div class="space-y-3">
 			{#each comments as comment (comment.id)}
-				<CommentItem {comment} />
+				<CommentItem {comment} {postId} ondeleted={loadComments} />
 			{/each}
 		</div>
 	{/if}

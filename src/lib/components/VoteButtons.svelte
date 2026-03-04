@@ -19,9 +19,11 @@
 	let voting = $state(false);
 
 	$effect(() => {
-		localUpvotes = upvotes;
-		localDownvotes = downvotes;
-		localUserVote = userVote;
+		if (!voting) {
+			localUpvotes = upvotes;
+			localDownvotes = downvotes;
+			localUserVote = userVote;
+		}
 	});
 
 	async function vote(value: 1 | -1) {
@@ -75,7 +77,7 @@
 <div class="flex items-center gap-1">
 	<button
 		onclick={() => vote(1)}
-		class="rounded p-1 transition-colors {localUserVote === 1
+		class="rounded p-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center {localUserVote === 1
 			? 'text-flame-500'
 			: 'text-shame-300 hover:text-flame-400'}"
 		aria-label="Upvote"
@@ -90,7 +92,7 @@
 	</span>
 	<button
 		onclick={() => vote(-1)}
-		class="rounded p-1 transition-colors {localUserVote === -1
+		class="rounded p-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center {localUserVote === -1
 			? 'text-ice-500'
 			: 'text-shame-300 hover:text-ice-400'}"
 		aria-label="Downvote"

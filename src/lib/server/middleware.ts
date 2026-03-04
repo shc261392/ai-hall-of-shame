@@ -26,11 +26,25 @@ export function jsonError(
 	return json({ error, message, ...extra }, { status });
 }
 
+const MAX_BODY_BYTES = 64 * 1024; // 64 KB
+
 /** Run ban + rate limit + optional auth checks for POST endpoints. */
 export async function guardPost(event: RequestEvent) {
 	const { request, platform } = event;
 	const db = platform!.env.DB;
 	const ip = getClientIp(request);
+
+	// Reject oversized bodies before parsing
+	const contentLength = request.headers.get("content-length");
+	if (contentLength && parseInt(contentLength, 10) > MAX_BODY_BYTES) {
+		return {
+			error: jsonError(
+				413,
+				"payload_too_large",
+				"Request body must be under 64 KB",
+			),
+		};
+	}
 
 	// Reject if no IP (direct access bypassing CF) — skip in dev
 	if (ip === "unknown") {
@@ -51,48 +65,46 @@ export async function guardPost(event: RequestEvent) {
 		};
 	}
 
-	if (!dev) {
-		// Check bans (user + IP)
-		for (const identifier of [user.sub, `ip:${ip}`]) {
-			const ban = await checkBan(db, identifier);
-			if (ban.banned) {
-				return {
-					error: jsonError(
-						403,
-						"banned",
-						`Account suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
-						{
-							expires_at: ban.expiresAt,
-						},
-					),
-				};
-			}
+	// Check bans (user + IP)
+	for (const identifier of [user.sub, `ip:${ip}`]) {
+		const ban = await checkBan(db, identifier);
+		if (ban.banned) {
+			return {
+				error: jsonError(
+					403,
+					"banned",
+					`Account suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
+					{
+						expires_at: ban.expiresAt,
+					},
+				),
+			};
 		}
+	}
 
-		// Rate limit (user + IP)
-		for (const identifier of [user.sub, `ip:${ip}`]) {
-			const limit = await checkRateLimit(db, identifier, true);
-			if (!limit.allowed) {
-				return {
-					error: jsonError(
-						429,
-						"rate_limited",
-						`Too many requests. You can make 5 POST requests per minute. Retry in ${limit.retryAfterSeconds}s.`,
-						{
-							retry_after_seconds: limit.retryAfterSeconds,
-						},
-					),
-				};
-			}
+	// Rate limit (user + IP)
+	for (const identifier of [user.sub, `ip:${ip}`]) {
+		const limit = await checkRateLimit(db, identifier, true);
+		if (!limit.allowed) {
+			return {
+				error: jsonError(
+					429,
+					"rate_limited",
+					`Too many requests. You can make 5 POST requests per minute. Retry in ${limit.retryAfterSeconds}s.`,
+					{
+						retry_after_seconds: limit.retryAfterSeconds,
+					},
+				),
+			};
 		}
+	}
 
-		// Check for auto-ban after incrementing counters
-		await checkAndAutoBan(db, [user.sub, `ip:${ip}`]);
+	// Check for auto-ban after incrementing counters
+	await checkAndAutoBan(db, [user.sub, `ip:${ip}`]);
 
-		// Opportunistic cleanup (roughly 1 in 20 requests)
-		if (Math.random() < 0.05) {
-			event.platform!.context.waitUntil(cleanupExpiredData(db));
-		}
+	// Opportunistic cleanup (roughly 1 in 20 requests)
+	if (Math.random() < 0.05) {
+		event.platform!.context.waitUntil(cleanupExpiredData(db));
 	}
 
 	return { user, ip };
@@ -110,40 +122,47 @@ export async function guardGet(event: RequestEvent) {
 		};
 	}
 
-	if (!dev) {
-		// Check ban
-		const ban = await checkBan(db, `ip:${ip}`);
-		if (ban.banned) {
-			return {
-				error: jsonError(
-					403,
-					"banned",
-					`IP suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
-					{
-						expires_at: ban.expiresAt,
-					},
-				),
-			};
-		}
+	// Check ban
+	const ban = await checkBan(db, `ip:${ip}`);
+	if (ban.banned) {
+		return {
+			error: jsonError(
+				403,
+				"banned",
+				`IP suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
+				{
+					expires_at: ban.expiresAt,
+				},
+			),
+		};
+	}
 
-		// Lightweight rate limit for GETs
-		const limit = await checkRateLimit(db, `ip:${ip}`, false);
-		if (!limit.allowed) {
-			return {
-				error: jsonError(
-					429,
-					"rate_limited",
-					`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
-					{
-						retry_after_seconds: limit.retryAfterSeconds,
-					},
-				),
-			};
-		}
+	// Lightweight rate limit for GETs
+	const limit = await checkRateLimit(db, `ip:${ip}`, false);
+	if (!limit.allowed) {
+		return {
+			error: jsonError(
+				429,
+				"rate_limited",
+				`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
+				{
+					retry_after_seconds: limit.retryAfterSeconds,
+				},
+			),
+		};
 	}
 
 	// Optional auth (for user vote status)
 	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
 
 	return { user, ip };
+}
+
+/** JSON response with short cache for public GET endpoints. */
+export function cachedJson(data: unknown, maxAge = 10) {
+	return json(data, {
+		headers: {
+			"Cache-Control": `public, max-age=${maxAge}, stale-while-revalidate=30`,
+		},
+	});
 }

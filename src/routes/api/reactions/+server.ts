@@ -23,37 +23,37 @@ export const POST: RequestHandler = async (event) => {
 	const db = event.platform!.env.DB;
 	const userId = (guard as { user: { sub: string } }).user.sub;
 
-	// Verify post exists
+	// Verify post exists and is not deleted
 	const post = await db
-		.prepare("SELECT id FROM posts WHERE id = ?")
+		.prepare("SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL")
 		.bind(postId)
 		.first();
 	if (!post) {
 		return jsonError(404, "not_found", "Post not found");
 	}
 
-	// Toggle: remove if exists, add if not
-	const existing = await db
+	// Toggle: try delete first, if nothing deleted then insert (avoids race condition)
+	const deleted = await db
 		.prepare(
-			"SELECT id FROM reactions WHERE post_id = ? AND user_id = ? AND emoji = ?",
+			"DELETE FROM reactions WHERE post_id = ? AND user_id = ? AND emoji = ? RETURNING id",
 		)
 		.bind(postId, userId, emoji)
 		.first();
 
-	if (existing) {
-		await db
-			.prepare(
-				"DELETE FROM reactions WHERE post_id = ? AND user_id = ? AND emoji = ?",
-			)
-			.bind(postId, userId, emoji)
-			.run();
-	} else {
-		await db
-			.prepare(
-				"INSERT INTO reactions (id, post_id, user_id, emoji) VALUES (?, ?, ?, ?)",
-			)
-			.bind(nanoid(), postId, userId, emoji)
-			.run();
+	if (!deleted) {
+		try {
+			await db
+				.prepare(
+					"INSERT INTO reactions (id, post_id, user_id, emoji) VALUES (?, ?, ?, ?)",
+				)
+				.bind(nanoid(), postId, userId, emoji)
+				.run();
+		} catch (e) {
+			// Handle concurrent insert race (UNIQUE constraint)
+			if (!(e instanceof Error && e.message.includes("UNIQUE constraint"))) {
+				throw e;
+			}
+		}
 	}
 
 	// Return updated reaction counts for that post

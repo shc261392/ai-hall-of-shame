@@ -3,7 +3,7 @@
 </script>
 
 {#if $toasts.length > 0}
-	<div class="fixed top-4 right-4 z-[100] flex flex-col gap-2">
+	<div class="fixed top-4 right-4 z-[100] flex flex-col gap-2" role="status" aria-live="polite">
 		{#each $toasts as toast (toast.id)}
 			<div
 				class="rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg backdrop-blur-sm

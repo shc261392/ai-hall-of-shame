@@ -23,14 +23,21 @@ export const POST: RequestHandler = async (event) => {
 	const userId = guard.user!.sub;
 	const db = event.platform!.env.DB;
 
-	// Verify target exists
+	// Verify target exists and get owner for self-vote check
 	const table = targetType === "post" ? "posts" : "comments";
 	const target = await db
-		.prepare(`SELECT id FROM ${table} WHERE id = ?`)
+		.prepare(
+			`SELECT id, user_id FROM ${table} WHERE id = ? AND deleted_at IS NULL`,
+		)
 		.bind(targetId)
-		.first();
+		.first<{ id: string; user_id: string }>();
 	if (!target) {
 		return jsonError(404, "not_found", `${targetType} not found`);
+	}
+
+	// Prevent self-voting
+	if (target.user_id === userId) {
+		return jsonError(403, "self_vote", "You cannot vote on your own content");
 	}
 
 	// Check existing vote

@@ -65,7 +65,7 @@ export async function checkRateLimit(
 
 	const totalCount = results.reduce((sum, r) => sum + r.count, 0);
 
-	if (totalCount > limit) {
+	if (totalCount >= limit) {
 		const retryAfterSeconds =
 			WINDOW_SECONDS - (Math.floor(Date.now() / 1000) - windowStart);
 		return {

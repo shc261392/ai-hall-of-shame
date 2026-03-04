@@ -80,7 +80,8 @@
 			></textarea>
 		{:else}
 			<div
-				class="prose prose-invert prose-neon max-w-none p-4 min-h-[{rows * 1.5}rem] markdown-preview"
+				class="prose prose-invert prose-neon max-w-none p-4 markdown-preview"
+				style="min-height: {rows * 1.5}rem"
 			>
 				{#if value.trim()}
 					{@html renderedHtml}

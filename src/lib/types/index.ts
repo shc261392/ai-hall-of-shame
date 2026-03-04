@@ -73,3 +73,35 @@ export interface PaginatedResponse<T> {
 	limit: number;
 	has_more: boolean;
 }
+
+// ── D1 row shapes (snake_case as returned from SQLite) ──
+
+export interface PostRow {
+	id: string;
+	user_id: string;
+	title: string;
+	body: string;
+	upvotes: number;
+	downvotes: number;
+	comment_count: number;
+	report_count: number;
+	deleted_at: number | null;
+	created_at: number;
+	username: string;
+	display_name: string | null;
+	trending_score?: number;
+}
+
+export interface CommentRow {
+	id: string;
+	post_id: string;
+	user_id: string;
+	body: string;
+	upvotes: number;
+	downvotes: number;
+	report_count: number;
+	deleted_at: number | null;
+	created_at: number;
+	username: string;
+	display_name: string | null;
+}

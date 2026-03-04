@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import { dev } from "$app/environment";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RequestHandler } from "./$types";
 import {
@@ -56,24 +57,14 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	// Normalize backup code (remove dashes, uppercase) - consistent with hashBackupCode
 	const normalizedCode = normalizeBackupCode(body.backupCode);
 
-	// Find credential with matching backup code
-	const credentials = await db
+	// Hash the backup code and look up directly by hash (O(1) instead of O(n))
+	const codeHash = await hashBackupCode(normalizedCode);
+	const matchedCredential = await db
 		.prepare(
-			"SELECT id, user_id, backup_key_hash FROM passkey_credentials WHERE backup_key_hash IS NOT NULL",
+			"SELECT id, user_id, backup_key_hash FROM passkey_credentials WHERE backup_key_hash = ?",
 		)
-		.all<{ id: string; user_id: string; backup_key_hash: string }>();
-
-	let matchedCredential: {
-		id: string;
-		user_id: string;
-		backup_key_hash: string;
-	} | null = null;
-	for (const cred of credentials.results) {
-		if (await verifyBackupCode(normalizedCode, cred.backup_key_hash)) {
-			matchedCredential = cred;
-			break;
-		}
-	}
+		.bind(codeHash)
+		.first<{ id: string; user_id: string; backup_key_hash: string }>();
 
 	if (!matchedCredential) {
 		return jsonError(
@@ -102,12 +93,15 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	// Verify new passkey registration
 	let verification;
 	try {
+		const expectedOrigin =
+			platform!.env.WEBAUTHN_ORIGIN ??
+			(dev ? "http://localhost:5173" : `https://${rpId}`);
 		verification = await verifyRegistrationResponse({
 			response: body.attestation as Parameters<
 				typeof verifyRegistrationResponse
 			>[0]["response"],
 			expectedChallenge: challengeRow.challenge,
-			expectedOrigin: `https://${rpId}`,
+			expectedOrigin,
 			expectedRPID: rpId,
 			requireUserVerification: true,
 		});

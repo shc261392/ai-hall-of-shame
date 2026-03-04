@@ -15,9 +15,11 @@
 	];
 </script>
 
-<div class="flex gap-1 rounded-lg bg-shame-800/50 p-1">
+<div class="flex gap-1 rounded-lg bg-shame-800/50 p-1" role="tablist">
 	{#each tabs as tab}
 		<button
+			role="tab"
+			aria-selected={active === tab.value}
 			onclick={() => onchange(tab.value)}
 			class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors
 				{active === tab.value

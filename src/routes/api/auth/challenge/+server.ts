@@ -1,12 +1,15 @@
 import { json } from "@sveltejs/kit";
 import { nanoid } from "nanoid";
 import type { RequestHandler } from "./$types";
-import { getClientIp, jsonError } from "$lib/server/middleware";
+import { getClientIp, guardGet, jsonError } from "$lib/server/middleware";
 
-export const GET: RequestHandler = async ({ request, platform, url }) => {
-	const db = platform!.env.DB;
-	const ip = getClientIp(request);
-	const purpose = url.searchParams.get("purpose");
+export const GET: RequestHandler = async (event) => {
+	const guard = await guardGet(event);
+	if ("error" in guard && guard.error) return guard.error;
+
+	const db = event.platform!.env.DB;
+	const ip = guard.ip;
+	const purpose = event.url.searchParams.get("purpose");
 
 	if (purpose !== "registration" && purpose !== "authentication") {
 		return jsonError(

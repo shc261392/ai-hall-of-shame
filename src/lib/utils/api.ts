@@ -41,6 +41,14 @@ class ApiClient {
 		return this.handle<T>(res);
 	}
 
+	async delete<T>(path: string): Promise<T> {
+		const res = await fetch(path, {
+			method: "DELETE",
+			headers: this.getHeaders(),
+		});
+		return this.handle<T>(res);
+	}
+
 	private async handle<T>(res: Response): Promise<T> {
 		if (res.status === 401) {
 			logout();

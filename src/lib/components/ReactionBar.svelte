@@ -17,7 +17,9 @@
 	let busy = $state(false);
 
 	$effect(() => {
-		localReactions = reactions;
+		if (!busy) {
+			localReactions = reactions;
+		}
 	});
 
 	const allDefs = REACTION_EMOJIS.map((emoji) => ({ emoji, label: REACTION_LABELS[emoji] }));

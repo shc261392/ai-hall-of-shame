@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { register, authenticate, recoverWithBackupCode, browserSupportsWebAuthn } from '$lib/utils/passkey';
 	import { addToast } from '$lib/stores/toast';
+	import { trapFocus } from '$lib/utils/focus-trap';
 	import BackupCodeModal from './BackupCodeModal.svelte';
 
 	interface Props {
@@ -14,11 +15,7 @@
 	let error = $state('');
 	let backupCodeInput = $state('');
 	let newBackupCode = $state<string | null>(null);
-	let supported = $state(true);
-
-	$effect(() => {
-		supported = browserSupportsWebAuthn();
-	});
+	let supported = $state(browserSupportsWebAuthn());
 
 	async function handleRegister() {
 		loading = true;
@@ -66,23 +63,32 @@
 	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) onclose();
 	}
+
+	function initFocusTrap(node: HTMLElement) {
+		const cleanup = trapFocus(node);
+		return { destroy: cleanup };
+	}
 </script>
 
 {#if newBackupCode}
 	<BackupCodeModal code={newBackupCode} onclose={onclose} />
 {:else}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-shame-950/80 backdrop-blur-sm"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="passkey-auth-title"
+		tabindex="-1"
 		onkeydown={(e) => e.key === 'Escape' && onclose()}
 		onclick={handleBackdropClick}
 	>
-		<div class="mx-4 w-full max-w-sm rounded-xl border border-shame-700 bg-shame-900 p-6 shadow-2xl">
+		<div class="mx-4 w-full max-w-sm rounded-xl border border-shame-700 bg-shame-900 p-6 shadow-2xl" use:initFocusTrap>
 			<div class="flex items-center justify-between mb-4">
-				<h2 class="text-lg font-bold text-shame-100">
+				<h2 id="passkey-auth-title" class="text-lg font-bold text-shame-100">
 					{mode === 'main' ? '🔐 Passkey Auth' : '🔑 Recover Account'}
 				</h2>
-				<button onclick={onclose} class="text-shame-300 hover:text-shame-100 text-xl">&times;</button>
+				<button onclick={onclose} class="text-shame-300 hover:text-shame-100 text-xl" aria-label="Close">&times;</button>
 			</div>
 
 			{#if !supported}

@@ -1,10 +1,16 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { guardGet, jsonError } from "$lib/server/middleware";
+import {
+	cachedJson,
+	guardGet,
+	guardPost,
+	jsonError,
+} from "$lib/server/middleware";
 import {
 	REACTION_EMOJIS,
 	REACTION_LABELS,
 	type ReactionEmoji,
+	type PostRow,
 } from "$lib/types";
 
 export const GET: RequestHandler = async (event) => {
@@ -16,10 +22,10 @@ export const GET: RequestHandler = async (event) => {
 
 	const post = await db
 		.prepare(
-			"SELECT p.*, u.username, u.display_name FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ?",
+			"SELECT p.*, u.username, u.display_name FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ? AND p.deleted_at IS NULL",
 		)
 		.bind(postId)
-		.first();
+		.first<PostRow>();
 
 	if (!post) {
 		return jsonError(404, "not_found", "Post not found");
@@ -63,18 +69,43 @@ export const GET: RequestHandler = async (event) => {
 		userReacted: userReactionSet.has(e),
 	}));
 
-	return json({
-		id: (post as any).id,
-		userId: (post as any).user_id,
-		username: (post as any).username,
-		displayName: (post as any).display_name || undefined,
-		title: (post as any).title,
-		body: (post as any).body,
-		upvotes: (post as any).upvotes,
-		downvotes: (post as any).downvotes,
-		commentCount: (post as any).comment_count,
-		createdAt: (post as any).created_at,
+	return cachedJson({
+		id: post.id,
+		userId: post.user_id,
+		username: post.username,
+		displayName: post.display_name || undefined,
+		title: post.title,
+		body: post.body,
+		upvotes: post.upvotes,
+		downvotes: post.downvotes,
+		commentCount: post.comment_count,
+		createdAt: post.created_at,
 		userVote,
 		reactions,
 	});
+};
+
+/** Soft-delete own post. */
+export const DELETE: RequestHandler = async (event) => {
+	const guard = await guardPost(event);
+	if ("error" in guard && guard.error) return guard.error;
+
+	const postId = event.params.id;
+	const db = event.platform!.env.DB;
+
+	const post = await db
+		.prepare("SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL")
+		.bind(postId)
+		.first<{ user_id: string }>();
+
+	if (!post) return jsonError(404, "not_found", "Post not found");
+	if (post.user_id !== guard.user!.sub)
+		return jsonError(403, "forbidden", "You can only delete your own posts");
+
+	await db
+		.prepare("UPDATE posts SET deleted_at = unixepoch() WHERE id = ?")
+		.bind(postId)
+		.run();
+
+	return json({ message: "Post deleted" });
 };

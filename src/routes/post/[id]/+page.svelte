@@ -1,22 +1,27 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { api } from '$lib/utils/api';
 	import { renderMarkdown } from '$lib/utils/markdown';
 	import { addToast } from '$lib/stores/toast';
+	import { auth } from '$lib/stores/auth';
 	import { timeAgo } from '$lib/utils/time';
 	import VoteButtons from '$lib/components/VoteButtons.svelte';
 	import ReactionBar from '$lib/components/ReactionBar.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ReportButton from '$lib/components/ReportButton.svelte';
 	import type { Post } from '$lib/types';
 
 	let post = $state<Post | null>(null);
 	let loading = $state(true);
 	let error = $state('');
+	let deleting = $state(false);
 
 	const postId = $derived($page.params.id);
 	const displayName = $derived(post?.displayName || post?.username || 'unknown');
 	const renderedBody = $derived(post?.body ? renderMarkdown(post.body) : '');
+	const isOwner = $derived(post && $auth.userId === post.userId);
 
 	$effect(() => {
 		if (postId) loadPost(postId);
@@ -32,6 +37,21 @@
 			addToast('Failed to load post', 'error');
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function deletePost() {
+		if (!post || deleting) return;
+		if (!confirm('Delete this post? This cannot be undone.')) return;
+		deleting = true;
+		try {
+			await api.delete(`/api/posts/${post.id}`);
+			addToast('Post deleted', 'success');
+			goto('/');
+		} catch (e: any) {
+			addToast(e.message || 'Failed to delete post', 'error');
+		} finally {
+			deleting = false;
 		}
 	}
 </script>
@@ -83,6 +103,18 @@
 				<ReactionBar postId={post.id} reactions={post.reactions} />
 			</div>
 		{/if}
+		<div class="mt-3 pt-3 border-t border-shame-700/50 flex items-center justify-between">
+			<ReportButton targetType="post" targetId={post.id} targetTitle={post.title} />
+			{#if isOwner}
+				<button
+					onclick={deletePost}
+					disabled={deleting}
+					class="text-xs text-shame-300 hover:text-error-500 disabled:opacity-50 transition-colors"
+				>
+					{deleting ? 'Deleting...' : '🗑️ Delete'}
+				</button>
+			{/if}
+		</div>
 	</article>
 
 	<div class="mt-6">

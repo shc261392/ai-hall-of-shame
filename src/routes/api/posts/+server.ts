@@ -1,24 +1,33 @@
 import { json } from "@sveltejs/kit";
 import { nanoid } from "nanoid";
 import type { RequestHandler } from "./$types";
-import { guardGet, guardPost, jsonError } from "$lib/server/middleware";
+import {
+	cachedJson,
+	guardGet,
+	guardPost,
+	jsonError,
+} from "$lib/server/middleware";
 import { postCreateSchema, paginationSchema } from "$lib/server/validation";
 import {
 	REACTION_EMOJIS,
 	REACTION_LABELS,
 	type ReactionEmoji,
+	type PostRow,
 } from "$lib/types";
 
 const SORT_QUERIES = {
 	trending: `SELECT p.*, u.username, u.display_name,
 		(p.upvotes - p.downvotes) * 1.0 / (((unixepoch() - p.created_at) / 3600.0) + 2) AS trending_score
 		FROM posts p JOIN users u ON p.user_id = u.id
+		WHERE p.deleted_at IS NULL
 		ORDER BY trending_score DESC LIMIT ? OFFSET ?`,
 	top: `SELECT p.*, u.username, u.display_name
 		FROM posts p JOIN users u ON p.user_id = u.id
+		WHERE p.deleted_at IS NULL
 		ORDER BY (p.upvotes - p.downvotes) DESC, p.created_at DESC LIMIT ? OFFSET ?`,
 	latest: `SELECT p.*, u.username, u.display_name
 		FROM posts p JOIN users u ON p.user_id = u.id
+		WHERE p.deleted_at IS NULL
 		ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
 } as const;
 
@@ -41,7 +50,7 @@ export const GET: RequestHandler = async (event) => {
 	const { results } = await db
 		.prepare(query)
 		.bind(limit + 1, offset)
-		.all();
+		.all<PostRow>();
 
 	const hasMore = results.length > limit;
 	const posts = results.slice(0, limit);
@@ -49,7 +58,7 @@ export const GET: RequestHandler = async (event) => {
 	// If user is authenticated, get their votes for these posts
 	let userVotes: Record<string, number> = {};
 	if ("user" in guard && guard.user) {
-		const postIds = posts.map((p: any) => p.id);
+		const postIds = posts.map((p: PostRow) => p.id);
 		if (postIds.length > 0) {
 			const placeholders = postIds.map(() => "?").join(",");
 			const { results: votes } = await db
@@ -63,7 +72,7 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	// Get reaction counts for all posts
-	const postIds = posts.map((p: any) => p.id);
+	const postIds = posts.map((p: PostRow) => p.id);
 	const reactionsByPost: Record<string, Record<string, number>> = {};
 	const userReactionsByPost: Record<string, Set<string>> = {};
 
@@ -105,11 +114,12 @@ export const GET: RequestHandler = async (event) => {
 			userReacted: userReactionsByPost[postId]?.has(e) ?? false,
 		}));
 
-	return json({
-		data: posts.map((p: any) => ({
+	return cachedJson({
+		data: posts.map((p: PostRow) => ({
 			id: p.id,
 			userId: p.user_id,
 			username: p.username,
+			displayName: p.display_name || undefined,
 			title: p.title,
 			body: p.body,
 			upvotes: p.upvotes,

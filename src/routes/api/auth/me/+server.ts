@@ -1,12 +1,13 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getAuthUser, signToken } from "$lib/server/auth";
-import { jsonError } from "$lib/server/middleware";
+import { getClientIp, jsonError } from "$lib/server/middleware";
 import {
 	usernameUpdateSchema,
 	displayNameUpdateSchema,
 } from "$lib/server/validation";
 import { isReservedUsername } from "$lib/server/username";
+import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
 export const GET: RequestHandler = async ({ request, platform }) => {
 	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
@@ -43,14 +44,25 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
 
+	// Rate limit profile updates
+	const db = platform!.env.DB;
+	const ip = getClientIp(request);
+	const limit = await checkRateLimit(db, user.sub, true);
+	if (!limit.allowed) {
+		return jsonError(
+			429,
+			"rate_limited",
+			`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
+			{ retry_after_seconds: limit.retryAfterSeconds },
+		);
+	}
+
 	let body: unknown;
 	try {
 		body = await request.json();
 	} catch {
 		return jsonError(400, "invalid_request", "Invalid JSON body");
 	}
-
-	const db = platform!.env.DB;
 
 	// Check if it's a displayName update
 	if ("displayName" in (body as object)) {
@@ -61,26 +73,27 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 
 		const newDisplayName = parsed.data.displayName;
 
-		// Check for uniqueness (case-insensitive)
-		const existing = await db
-			.prepare(
-				"SELECT 1 FROM users WHERE LOWER(display_name) = LOWER(?) AND id != ?",
-			)
-			.bind(newDisplayName, user.sub)
-			.first();
-
-		if (existing) {
-			return jsonError(
-				409,
-				"display_name_taken",
-				"This display name is already taken",
-			);
+		// Check reserved names
+		if (isReservedUsername(newDisplayName)) {
+			return jsonError(400, "reserved_name", "This display name is reserved");
 		}
 
-		await db
-			.prepare("UPDATE users SET display_name = ? WHERE id = ?")
-			.bind(newDisplayName, user.sub)
-			.run();
+		// Use DB constraint to handle uniqueness (avoids TOCTOU race)
+		try {
+			await db
+				.prepare("UPDATE users SET display_name = ? WHERE id = ?")
+				.bind(newDisplayName, user.sub)
+				.run();
+		} catch (e) {
+			if (e instanceof Error && e.message.includes("UNIQUE constraint")) {
+				return jsonError(
+					409,
+					"display_name_taken",
+					"This display name is already taken",
+				);
+			}
+			throw e;
+		}
 
 		return json({ displayName: newDisplayName });
 	}
@@ -97,9 +110,9 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 		return jsonError(400, "reserved_username", "This username is reserved");
 	}
 
-	// Check for uniqueness
+	// Check for uniqueness (case-insensitive)
 	const existing = await db
-		.prepare("SELECT 1 FROM users WHERE username = ? AND id != ?")
+		.prepare("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND id != ?")
 		.bind(newUsername, user.sub)
 		.first();
 
