@@ -3,6 +3,7 @@
 	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
+	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
 
 	let title = $state('');
 	let body = $state('');
@@ -60,18 +61,14 @@
 		</div>
 
 		<div>
-			<label for="body" class="block text-sm font-medium text-shame-200 mb-1">
-				Details <span class="text-shame-300">(optional)</span>
-			</label>
-			<textarea
-				id="body"
+			<MarkdownEditor
 				bind:value={body}
-				placeholder="Tell us the full story of this AI catastrophe..."
-				rows="8"
-				maxlength="5000"
-				class="w-full rounded-lg border border-shame-700 bg-shame-800 px-3 py-2 text-sm text-shame-100 placeholder:text-shame-300/50 focus:border-neon-500 focus:outline-none resize-none"
-			></textarea>
-			<span class="text-xs text-shame-300">{body.length}/5000</span>
+				onchange={(val) => (body = val)}
+				label="Details (optional)"
+				placeholder="Tell us the full story of this AI catastrophe... (Markdown supported)"
+				maxlength={10000}
+				rows={10}
+			/>
 		</div>
 
 		<div class="flex items-center justify-between pt-2">

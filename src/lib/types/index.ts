@@ -1,6 +1,7 @@
 export interface User {
 	id: string;
 	username: string;
+	displayName?: string;
 	created_at: number;
 }
 
@@ -26,6 +27,7 @@ export interface Post {
 	id: string;
 	userId: string;
 	username: string;
+	displayName?: string;
 	title: string;
 	body: string;
 	upvotes: number;
@@ -41,6 +43,7 @@ export interface Comment {
 	postId: string;
 	userId: string;
 	username: string;
+	displayName?: string;
 	body: string;
 	upvotes: number;
 	downvotes: number;

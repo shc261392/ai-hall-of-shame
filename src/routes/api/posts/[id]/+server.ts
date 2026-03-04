@@ -16,7 +16,7 @@ export const GET: RequestHandler = async (event) => {
 
 	const post = await db
 		.prepare(
-			"SELECT p.*, u.username FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ?",
+			"SELECT p.*, u.username, u.display_name FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ?",
 		)
 		.bind(postId)
 		.first();
@@ -67,6 +67,7 @@ export const GET: RequestHandler = async (event) => {
 		id: (post as any).id,
 		userId: (post as any).user_id,
 		username: (post as any).username,
+		displayName: (post as any).display_name || undefined,
 		title: (post as any).title,
 		body: (post as any).body,
 		upvotes: (post as any).upvotes,

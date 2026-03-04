@@ -4,19 +4,20 @@ interface AuthState {
 	token: string | null;
 	username: string | null;
 	userId: string | null;
+	displayName?: string | null;
 }
 
 const STORAGE_KEY = "ahos_auth";
 
 function loadFromStorage(): AuthState {
 	if (typeof sessionStorage === "undefined")
-		return { token: null, username: null, userId: null };
+		return { token: null, username: null, userId: null, displayName: null };
 	try {
 		const raw = sessionStorage.getItem(STORAGE_KEY);
-		if (!raw) return { token: null, username: null, userId: null };
+		if (!raw) return { token: null, username: null, userId: null, displayName: null };
 		return JSON.parse(raw);
 	} catch {
-		return { token: null, username: null, userId: null };
+		return { token: null, username: null, userId: null, displayName: null };
 	}
 }
 
@@ -34,8 +35,8 @@ export const auth = writable<AuthState>(initial);
 
 auth.subscribe(saveToStorage);
 
-export function login(token: string, username: string, userId: string) {
-	auth.set({ token, username, userId });
+export function login(token: string, username: string, userId: string, displayName?: string) {
+	auth.set({ token, username, userId, displayName: displayName ?? null });
 }
 
 export function logout() {
@@ -47,5 +48,12 @@ export function updateUsername(username: string, token?: string) {
 		...s,
 		username,
 		token: token ?? s.token,
+	}));
+}
+
+export function updateDisplayName(displayName: string) {
+	auth.update((s) => ({
+		...s,
+		displayName,
 	}));
 }

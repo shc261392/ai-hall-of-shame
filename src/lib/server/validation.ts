@@ -35,6 +35,18 @@ export const usernameUpdateSchema = z.object({
 		),
 });
 
+export const displayNameUpdateSchema = z.object({
+	displayName: z
+		.string()
+		.trim()
+		.min(1, "Display name must be at least 1 character")
+		.max(20, "Display name must be 20 characters or less")
+		.regex(
+			/^[a-zA-Z0-9_]+$/,
+			"Display name can only contain letters, numbers, and underscores",
+		),
+});
+
 export const voteSchema = z.object({
 	targetId: z.string().min(1),
 	targetType: z.enum(["post", "comment"]),

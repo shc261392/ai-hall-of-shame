@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/utils/api';
+	import { renderMarkdown } from '$lib/utils/markdown';
 	import { addToast } from '$lib/stores/toast';
 	import { timeAgo } from '$lib/utils/time';
 	import VoteButtons from '$lib/components/VoteButtons.svelte';
@@ -9,11 +11,15 @@
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import type { Post } from '$lib/types';
 
+	const openProfile = getContext<(username: string) => void>('openProfile');
+
 	let post = $state<Post | null>(null);
 	let loading = $state(true);
 	let error = $state('');
 
 	const postId = $derived($page.params.id);
+	const displayName = $derived(post?.displayName || post?.username || 'unknown');
+	const renderedBody = $derived(post?.body ? renderMarkdown(post.body) : '');
 
 	$effect(() => {
 		if (postId) loadPost(postId);
@@ -64,15 +70,20 @@
 					{post.title}
 				</h1>
 				<div class="mt-1 flex items-center gap-2 text-xs text-shame-300">
-					<span>{post.username}</span>
+					<button
+						onclick={() => post && openProfile(post.username)}
+						class="hover:text-neon-400 transition-colors hover:underline"
+					>
+						{displayName}
+					</button>
 					<span>·</span>
 					<span>{timeAgo(post.createdAt)}</span>
 				</div>
 			</div>
 		</div>
 		{#if post.body}
-			<div class="mt-4 text-sm text-shame-200 whitespace-pre-wrap break-words leading-relaxed">
-				{post.body}
+			<div class="mt-4 text-sm text-shame-200 leading-relaxed markdown-preview">
+				{@html renderedBody}
 			</div>
 		{/if}
 		{#if post.reactions}
@@ -83,7 +94,7 @@
 	</article>
 
 	<div class="mt-6">
-		<CommentSection postId={post.id} />
+		<CommentSection postId={post.id} onopenprofile={openProfile} />
 	</div>
 
 	<div class="mt-6">

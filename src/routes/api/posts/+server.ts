@@ -10,14 +10,14 @@ import {
 } from "$lib/types";
 
 const SORT_QUERIES = {
-	trending: `SELECT p.*, u.username,
+	trending: `SELECT p.*, u.username, u.display_name,
 		(p.upvotes - p.downvotes) * 1.0 / (((unixepoch() - p.created_at) / 3600.0) + 2) AS trending_score
 		FROM posts p JOIN users u ON p.user_id = u.id
 		ORDER BY trending_score DESC LIMIT ? OFFSET ?`,
-	top: `SELECT p.*, u.username
+	top: `SELECT p.*, u.username, u.display_name
 		FROM posts p JOIN users u ON p.user_id = u.id
 		ORDER BY (p.upvotes - p.downvotes) DESC, p.created_at DESC LIMIT ? OFFSET ?`,
-	latest: `SELECT p.*, u.username
+	latest: `SELECT p.*, u.username, u.display_name
 		FROM posts p JOIN users u ON p.user_id = u.id
 		ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
 } as const;

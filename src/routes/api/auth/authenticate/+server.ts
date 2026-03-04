@@ -93,10 +93,15 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		);
 	}
 
-	// Parse stored public key - it's stored as a comma-separated byte array
-	const publicKeyBytes = new Uint8Array(
-		credential.public_key.split(",").map(Number),
-	);
+	// Parse stored public key - D1 returns it as JSON array
+	let publicKeyBytes: Uint8Array;
+	if (typeof credential.public_key === "string") {
+		// Stored as JSON array string
+		publicKeyBytes = new Uint8Array(JSON.parse(credential.public_key));
+	} else {
+		// Already an array or Uint8Array
+		publicKeyBytes = new Uint8Array(credential.public_key as number[]);
+	}
 
 	let verification;
 	try {
@@ -110,7 +115,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			requireUserVerification: true,
 			credential: {
 				id: credential.id,
-				publicKey: publicKeyBytes,
+				publicKey: publicKeyBytes as Uint8Array<ArrayBuffer>,
 				counter: credential.counter,
 				transports: JSON.parse(credential.transports || "[]"),
 			},

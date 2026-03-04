@@ -6,12 +6,14 @@
 	import CommentItem from './CommentItem.svelte';
 	import LoadingSpinner from './LoadingSpinner.svelte';
 	import EmptyState from './EmptyState.svelte';
+	import MarkdownEditor from './MarkdownEditor.svelte';
 
 	interface Props {
 		postId: string;
+		onopenprofile?: (username: string) => void;
 	}
 
-	let { postId }: Props = $props();
+	let { postId, onopenprofile }: Props = $props();
 
 	let comments = $state<Comment[]>([]);
 	let loading = $state(true);
@@ -56,20 +58,19 @@
 	</h2>
 
 	{#if $auth.token}
-		<div class="mb-4">
-			<textarea
+		<div class="mb-6">
+			<MarkdownEditor
 				bind:value={body}
-				placeholder="Share your thoughts on this AI disaster..."
-				rows="3"
-				maxlength="2000"
-				class="w-full rounded-lg border border-shame-700 bg-shame-800 px-3 py-2 text-sm text-shame-100 placeholder:text-shame-300/50 focus:border-neon-500 focus:outline-none resize-none"
-			></textarea>
-			<div class="mt-2 flex items-center justify-between">
-				<span class="text-xs text-shame-300">{body.length}/2000</span>
+				onchange={(val) => (body = val)}
+				placeholder="Share your thoughts on this AI disaster... (Markdown supported)"
+				maxlength={5000}
+				rows={6}
+			/>
+			<div class="mt-3 flex justify-end">
 				<button
 					onclick={submitComment}
 					disabled={!body.trim() || submitting}
-					class="rounded-lg bg-neon-500 px-4 py-1.5 text-sm font-medium text-shame-950 hover:bg-neon-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+					class="rounded-lg bg-neon-500 px-6 py-2 font-medium text-shame-950 hover:bg-neon-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 				>
 					{submitting ? 'Posting...' : 'Post Comment'}
 				</button>
@@ -84,7 +85,7 @@
 	{:else}
 		<div class="space-y-3">
 			{#each comments as comment (comment.id)}
-				<CommentItem {comment} />
+				<CommentItem {comment} {onopenprofile} />
 			{/each}
 		</div>
 	{/if}

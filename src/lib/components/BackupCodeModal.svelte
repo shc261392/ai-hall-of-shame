@@ -23,15 +23,18 @@
 			</p>
 		</div>
 
-		<div class="relative my-4 rounded-lg bg-shame-950 border border-shame-700 p-4">
-			<code class="block text-center text-sm font-mono text-neon-400 break-all select-all">
-				{code}
-			</code>
+		<div class="flex items-center gap-2 my-4">
+			<div class="flex-1 rounded-lg bg-shame-950 border border-shame-700 p-4">
+				<code class="block text-center text-sm font-mono text-neon-400 break-all select-all">
+					{code}
+				</code>
+			</div>
 			<button
 				onclick={copyCode}
-				class="absolute top-2 right-2 rounded px-2 py-1 text-xs text-shame-300 hover:text-shame-100 hover:bg-shame-800 transition-colors"
+				title="Copy backup code"
+				class="rounded-lg p-3 text-lg text-shame-300 hover:text-shame-100 hover:bg-shame-800 transition-colors"
 			>
-				Copy
+				📋
 			</button>
 		</div>
 

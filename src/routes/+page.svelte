@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import HeroBanner from '$lib/components/HeroBanner.svelte';
 	import FilterTabs from '$lib/components/FilterTabs.svelte';
 	import PostCard from '$lib/components/PostCard.svelte';
@@ -7,6 +8,8 @@
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 	import type { Post, SortOption, PaginatedResponse } from '$lib/types';
+
+	const openProfile = getContext<(username: string) => void>('openProfile');
 
 	let sort = $state<SortOption>('trending');
 	let posts = $state<Post[]>([]);
@@ -75,7 +78,7 @@
 {:else}
 	<div class="space-y-3">
 		{#each posts as post (post.id)}
-			<PostCard {post} />
+			<PostCard {post} onopenprofile={openProfile} />
 		{/each}
 	</div>
 

@@ -3,12 +3,23 @@
 	import VoteButtons from './VoteButtons.svelte';
 	import ReactionBar from './ReactionBar.svelte';
 	import { timeAgo } from '$lib/utils/time';
+	import { stripMarkdown } from '$lib/utils/markdown';
 
 	interface Props {
 		post: Post;
+		onopenprofile?: (username: string) => void;
 	}
 
-	let { post }: Props = $props();
+	let { post, onopenprofile }: Props = $props();
+
+	const displayName = $derived(post.displayName || post.username);
+	const bodyPreview = $derived(stripMarkdown(post.body).substring(0, 150));
+
+	function handleUsernameClick(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		onopenprofile?.(post.username);
+	}
 </script>
 
 <a
@@ -33,11 +44,18 @@
 			</h3>
 			{#if post.body}
 				<p class="mt-1 text-sm text-shame-300 line-clamp-2">
-					{post.body}
+					{bodyPreview}
 				</p>
 			{/if}
 			<div class="mt-2 flex items-center gap-3 text-xs text-shame-300">
-				<span>{post.username}</span>
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<button
+					onclick={handleUsernameClick}
+					class="hover:text-neon-400 hover:underline transition-colors"
+				>
+					{displayName}
+				</button>
 				<span>·</span>
 				<span>{timeAgo(post.createdAt)}</span>
 				<span>·</span>

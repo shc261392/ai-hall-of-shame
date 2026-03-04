@@ -22,7 +22,7 @@ export const GET: RequestHandler = async (event) => {
 
 	const { results } = await db
 		.prepare(
-			"SELECT c.*, u.username FROM comments c JOIN users u ON c.user_id = u.id WHERE c.post_id = ? ORDER BY c.created_at ASC",
+			"SELECT c.*, u.username, u.display_name FROM comments c JOIN users u ON c.user_id = u.id WHERE c.post_id = ? ORDER BY c.created_at ASC",
 		)
 		.bind(postId)
 		.all();
@@ -47,6 +47,7 @@ export const GET: RequestHandler = async (event) => {
 			postId: c.post_id,
 			userId: c.user_id,
 			username: c.username,
+			displayName: c.display_name || undefined,
 			body: c.body,
 			upvotes: c.upvotes,
 			downvotes: c.downvotes,
