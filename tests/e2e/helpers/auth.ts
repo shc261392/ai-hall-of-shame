@@ -37,16 +37,19 @@ function seedUserInDb(userId: string, username: string): void {
 		// node:sqlite is available in Node 22.5+
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
 		const { DatabaseSync } = _require("node:sqlite") as {
-			DatabaseSync: new (path: string) => {
+			DatabaseSync: new (
+				path: string,
+			) => {
 				exec: (sql: string) => void;
 				prepare: (sql: string) => { run: (...args: unknown[]) => void };
 				close: () => void;
 			};
 		};
 		const db = new DatabaseSync(dbPath);
-		db.prepare(
-			"INSERT OR IGNORE INTO users (id, username) VALUES (?, ?)",
-		).run(userId, username);
+		db.prepare("INSERT OR IGNORE INTO users (id, username) VALUES (?, ?)").run(
+			userId,
+			username,
+		);
 		db.close();
 	} catch {
 		// Silently ignore — tests that need a real user will skip gracefully

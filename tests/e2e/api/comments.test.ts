@@ -72,9 +72,7 @@ test.describe("POST /api/posts/[id]/comments — validation", () => {
 
 test.describe("GET /api/posts/[id]/comments", () => {
 	test("returns 404 for non-existent post comments", async ({ request }) => {
-		const res = await request.get(
-			`${BASE}/api/posts/${FAKE_POST_ID}/comments`,
-		);
+		const res = await request.get(`${BASE}/api/posts/${FAKE_POST_ID}/comments`);
 		// Either 404 (post not found) or 200 with empty array depending on impl
 		expect([200, 404]).toContain(res.status());
 		if (res.status() === 200) {

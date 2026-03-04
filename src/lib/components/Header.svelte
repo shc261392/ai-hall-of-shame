@@ -1,8 +1,16 @@
 <script lang="ts">
-	import { auth, logout } from '$lib/stores/auth';
+	import { getContext } from 'svelte';
+	import { auth } from '$lib/stores/auth';
 	import PasskeyAuth from './PasskeyAuth.svelte';
 
 	let showAuth = $state(false);
+	const openProfile = getContext<(username: string) => void>('openProfile');
+
+	function handleProfileClick() {
+		if ($auth.username) {
+			openProfile($auth.username);
+		}
+	}
 </script>
 
 <header class="border-b border-shame-700 bg-shame-900/80 backdrop-blur-sm sticky top-0 z-50">
@@ -15,21 +23,22 @@
 
 		<div class="flex items-center gap-3">
 			{#if $auth.token}
-				<span class="text-shame-200 text-sm hidden sm:inline">
-					{$auth.username}
-				</span>
+				<button
+					onclick={handleProfileClick}
+					class="hidden sm:flex items-center gap-1.5 rounded-lg border border-shame-600 bg-shame-900/50 px-3 py-1.5 text-sm text-shame-200 hover:border-neon-500/50 hover:bg-shame-800 transition-colors"
+					title="Click to edit profile"
+				>
+					<span>👤</span>
+					<span>{$auth.displayName || $auth.username}</span>
+				</button>
 				<a
 					href="/submit"
-					class="rounded-lg bg-neon-500 px-3 py-1.5 text-sm font-medium text-shame-950 hover:bg-neon-400 transition-colors"
+					class="flex items-center gap-1 rounded-lg bg-neon-500 px-3 py-1.5 text-sm font-medium text-shame-950 hover:bg-neon-400 transition-colors"
+					title="Create new post"
 				>
-					+ Post
+					<span class="text-base">✏️</span>
+					<span class="hidden sm:inline">Post</span>
 				</a>
-				<button
-					onclick={() => logout()}
-					class="rounded-lg border border-shame-600 px-3 py-1.5 text-sm text-shame-200 hover:bg-shame-800 transition-colors"
-				>
-					Sign Out
-				</button>
 			{:else}
 				<button
 					onclick={() => (showAuth = true)}

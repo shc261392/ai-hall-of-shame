@@ -4,9 +4,7 @@ const BASE = "http://localhost:5173";
 
 test.describe("GET /api/auth/challenge", () => {
 	test("rejects invalid purpose (400)", async ({ request }) => {
-		const res = await request.get(
-			`${BASE}/api/auth/challenge?purpose=invalid`,
-		);
+		const res = await request.get(`${BASE}/api/auth/challenge?purpose=invalid`);
 		expect(res.status()).toBe(400);
 		expect((await res.json()).error).toBe("invalid_request");
 	});

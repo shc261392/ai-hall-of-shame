@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { auth, updateDisplayName } from "$lib/stores/auth";
+	import { auth, updateDisplayName, logout } from "$lib/stores/auth";
 	import { api } from "$lib/utils/api";
 
 	interface Props {
@@ -71,6 +71,11 @@
 	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) onclose();
 	}
+
+	function handleSignOut() {
+		logout();
+		onclose();
+	}
 </script>
 
 <div
@@ -140,26 +145,34 @@
 		</div>
 
 		<!-- Actions -->
-		<div class="flex gap-3">
+		<div class="flex flex-col gap-3">
+			<div class="flex gap-3">
+				<button
+					onclick={onclose}
+					disabled={loading}
+					class="flex-1 rounded-lg border border-shame-700 bg-shame-950 py-2.5 font-medium text-shame-200 hover:bg-shame-800 disabled:opacity-50 transition-colors"
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleSave}
+					disabled={!isValid || loading || success}
+					class="flex-1 rounded-lg bg-neon-500 py-2.5 font-medium text-shame-950 hover:bg-neon-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+				>
+					{#if loading}
+						Saving...
+					{:else if success}
+						Saved!
+					{:else}
+						Save Changes
+					{/if}
+				</button>
+			</div>
 			<button
-				onclick={onclose}
-				disabled={loading}
-				class="flex-1 rounded-lg border border-shame-700 bg-shame-950 py-2.5 font-medium text-shame-200 hover:bg-shame-800 disabled:opacity-50 transition-colors"
+				onclick={handleSignOut}
+				class="w-full rounded-lg border border-warning-500/30 bg-warning-900/20 py-2.5 font-medium text-warning-400 hover:bg-warning-900/40 hover:border-warning-500/50 transition-colors"
 			>
-				Cancel
-			</button>
-			<button
-				onclick={handleSave}
-				disabled={!isValid || loading || success}
-				class="flex-1 rounded-lg bg-neon-500 py-2.5 font-medium text-shame-950 hover:bg-neon-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-			>
-				{#if loading}
-					Saving...
-				{:else if success}
-					Saved!
-				{:else}
-					Save Changes
-				{/if}
+				Sign Out
 			</button>
 		</div>
 	</div>

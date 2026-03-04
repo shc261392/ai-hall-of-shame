@@ -10,10 +10,10 @@ import {
 } from "./ratelimit";
 
 export function getClientIp(request: Request): string {
-        return (
-                request.headers.get("CF-Connecting-IP") ||
-                request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
-                (dev ? "127.0.0.1" : "unknown")
+	return (
+		request.headers.get("CF-Connecting-IP") ||
+		request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
+		(dev ? "127.0.0.1" : "unknown")
 	);
 }
 

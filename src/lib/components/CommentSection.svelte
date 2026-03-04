@@ -10,10 +10,9 @@
 
 	interface Props {
 		postId: string;
-		onopenprofile?: (username: string) => void;
 	}
 
-	let { postId, onopenprofile }: Props = $props();
+	let { postId }: Props = $props();
 
 	let comments = $state<Comment[]>([]);
 	let loading = $state(true);
@@ -85,7 +84,7 @@
 	{:else}
 		<div class="space-y-3">
 			{#each comments as comment (comment.id)}
-				<CommentItem {comment} {onopenprofile} />
+				<CommentItem {comment} />
 			{/each}
 		</div>
 	{/if}

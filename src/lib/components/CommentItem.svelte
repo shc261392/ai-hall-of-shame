@@ -6,19 +6,12 @@
 
 	interface Props {
 		comment: Comment;
-		onopenprofile?: (username: string) => void;
 	}
 
-	let { comment, onopenprofile }: Props = $props();
+	let { comment }: Props = $props();
 
 	const displayName = $derived(comment.displayName || comment.username);
 	const renderedBody = $derived(renderMarkdown(comment.body));
-
-	function handleUsernameClick(e: MouseEvent) {
-		e.preventDefault();
-		e.stopPropagation();
-		onopenprofile?.(comment.username);
-	}
 </script>
 
 <div class="rounded-lg border border-shame-700/50 bg-shame-900/30 p-3">
@@ -37,12 +30,7 @@
 				{@html renderedBody}
 			</div>
 			<div class="mt-2 flex items-center gap-2 text-xs text-shame-300">
-				<button
-					onclick={handleUsernameClick}
-					class="hover:text-neon-400 hover:underline transition-colors"
-				>
-					{displayName}
-				</button>
+				<span>{displayName}</span>
 				<span>·</span>
 				<span>{timeAgo(comment.createdAt)}</span>
 			</div>

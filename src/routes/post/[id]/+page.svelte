@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/utils/api';
 	import { renderMarkdown } from '$lib/utils/markdown';
@@ -10,8 +9,6 @@
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import type { Post } from '$lib/types';
-
-	const openProfile = getContext<(username: string) => void>('openProfile');
 
 	let post = $state<Post | null>(null);
 	let loading = $state(true);
@@ -70,12 +67,7 @@
 					{post.title}
 				</h1>
 				<div class="mt-1 flex items-center gap-2 text-xs text-shame-300">
-					<button
-						onclick={() => post && openProfile(post.username)}
-						class="hover:text-neon-400 transition-colors hover:underline"
-					>
-						{displayName}
-					</button>
+					<span>{displayName}</span>
 					<span>·</span>
 					<span>{timeAgo(post.createdAt)}</span>
 				</div>
@@ -94,7 +86,7 @@
 	</article>
 
 	<div class="mt-6">
-		<CommentSection postId={post.id} onopenprofile={openProfile} />
+		<CommentSection postId={post.id} />
 	</div>
 
 	<div class="mt-6">

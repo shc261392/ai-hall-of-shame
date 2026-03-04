@@ -1,9 +1,17 @@
 {
     "extends": "../tsconfig.json",
     "compilerOptions": {
-        "types": ["node", "@playwright/test"],
+        "types": [
+            "node",
+            "@playwright/test"
+        ],
         "moduleResolution": "node",
-        "lib": ["es2022"]
+        "lib": [
+            "es2022"
+        ]
     },
-    "include": ["./**/*.ts", "../playwright.config.ts"]
+    "include": [
+        "./**/*.ts",
+        "../playwright.config.ts"
+    ]
 }

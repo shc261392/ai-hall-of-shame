@@ -118,13 +118,19 @@ test.describe("POST /api/posts + GET /api/posts/[id] — full create+fetch cycle
 		expect([201, 500]).toContain(res.status());
 	});
 
-	test("GET /api/posts/[id] returns 404 for unknown id", async ({ request }) => {
-		const res = await request.get(`${BASE}/api/posts/definitely-does-not-exist-xyz`);
+	test("GET /api/posts/[id] returns 404 for unknown id", async ({
+		request,
+	}) => {
+		const res = await request.get(
+			`${BASE}/api/posts/definitely-does-not-exist-xyz`,
+		);
 		expect(res.status()).toBe(404);
 		expect((await res.json()).error).toBe("not_found");
 	});
 
-	test("GET /api/posts/[id] returns post if it was created", async ({ request }) => {
+	test("GET /api/posts/[id] returns post if it was created", async ({
+		request,
+	}) => {
 		if (!postId) test.skip();
 		const res = await request.get(`${BASE}/api/posts/${postId}`);
 		expect(res.status()).toBe(200);

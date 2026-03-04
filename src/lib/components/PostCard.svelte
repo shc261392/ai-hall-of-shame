@@ -7,19 +7,12 @@
 
 	interface Props {
 		post: Post;
-		onopenprofile?: (username: string) => void;
 	}
 
-	let { post, onopenprofile }: Props = $props();
+	let { post }: Props = $props();
 
 	const displayName = $derived(post.displayName || post.username);
 	const bodyPreview = $derived(stripMarkdown(post.body).substring(0, 150));
-
-	function handleUsernameClick(e: MouseEvent) {
-		e.preventDefault();
-		e.stopPropagation();
-		onopenprofile?.(post.username);
-	}
 </script>
 
 <a
@@ -48,14 +41,7 @@
 				</p>
 			{/if}
 			<div class="mt-2 flex items-center gap-3 text-xs text-shame-300">
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<button
-					onclick={handleUsernameClick}
-					class="hover:text-neon-400 hover:underline transition-colors"
-				>
-					{displayName}
-				</button>
+				<span>{displayName}</span>
 				<span>·</span>
 				<span>{timeAgo(post.createdAt)}</span>
 				<span>·</span>

@@ -19,7 +19,9 @@ test.describe("POST /api/votes — validation", () => {
 		({ token } = await createTestUser("voter"));
 	});
 
-	test("rejects invalid value (0) — must be 1 or -1 (400)", async ({ request }) => {
+	test("rejects invalid value (0) — must be 1 or -1 (400)", async ({
+		request,
+	}) => {
 		const res = await request.post(`${BASE}/api/votes`, {
 			headers: authHeaders(token),
 			data: { targetId: FAKE_POST_ID, targetType: "post", value: 0 },

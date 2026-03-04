@@ -14,5 +14,7 @@
             "@cloudflare/workers-types"
         ]
     },
-    "exclude": ["tests"]
+    "exclude": [
+        "tests"
+    ]
 }

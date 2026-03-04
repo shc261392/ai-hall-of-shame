@@ -14,7 +14,8 @@ function loadFromStorage(): AuthState {
 		return { token: null, username: null, userId: null, displayName: null };
 	try {
 		const raw = sessionStorage.getItem(STORAGE_KEY);
-		if (!raw) return { token: null, username: null, userId: null, displayName: null };
+		if (!raw)
+			return { token: null, username: null, userId: null, displayName: null };
 		return JSON.parse(raw);
 	} catch {
 		return { token: null, username: null, userId: null, displayName: null };
@@ -35,7 +36,12 @@ export const auth = writable<AuthState>(initial);
 
 auth.subscribe(saveToStorage);
 
-export function login(token: string, username: string, userId: string, displayName?: string) {
+export function login(
+	token: string,
+	username: string,
+	userId: string,
+	displayName?: string,
+) {
 	auth.set({ token, username, userId, displayName: displayName ?? null });
 }
 

@@ -63,7 +63,9 @@ test.describe("POST /api/reactions — validation", () => {
 
 	// All 5 valid emojis accepted (against fake post → 404, but validation passes)
 	for (const emoji of ["😈", "❓", "💀", "🤦", "🔥"]) {
-		test(`accepts valid emoji ${emoji} (404 because post is fake)`, async ({ request }) => {
+		test(`accepts valid emoji ${emoji} (404 because post is fake)`, async ({
+			request,
+		}) => {
 			const res = await request.post(`${BASE}/api/reactions`, {
 				headers: authHeaders(token),
 				data: { postId: "nonexistent-post-xyz", emoji },
