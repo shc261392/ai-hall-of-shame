@@ -36,12 +36,33 @@ fi
 
 echo ""
 echo "🗄️  Running D1 migrations..."
-for migration in migrations/*.sql; do
-  echo "  → $migration"
-  npx wrangler d1 execute ahos-db --remote --file="$migration"
-done
+# If the DB has tables but d1_migrations is empty/missing, seed the tracking table.
+# This handles databases set up before (or with a broken) wrangler migrations apply run.
+USERS_EXISTS=$(CI=true npx wrangler d1 execute ahos-db --remote \
+  --command "SELECT count(*) as n FROM sqlite_master WHERE type='table' AND name='users';" \
+  --json 2>/dev/null | grep -oP '"n":\s*\K[0-9]+' || echo "0")
+TRACKED_COUNT=$(CI=true npx wrangler d1 execute ahos-db --remote \
+  --command "SELECT count(*) as n FROM d1_migrations;" \
+  --json 2>/dev/null | grep -oP '"n":\s*\K[0-9]+' || echo "0")
+if [ "$USERS_EXISTS" = "1" ] && [ "$TRACKED_COUNT" = "0" ]; then
+  echo "  ⚙️  Seeding migration tracking for pre-existing database..."
+  SEED_SQL="CREATE TABLE IF NOT EXISTS d1_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);"
+  for migration in migrations/*.sql; do
+    name=$(basename "$migration")
+    SEED_SQL="$SEED_SQL INSERT OR IGNORE INTO d1_migrations (name) VALUES ('$name');"
+  done
+  CI=true npx wrangler d1 execute ahos-db --remote --command "$SEED_SQL"
+fi
+CI=true npx wrangler d1 migrations apply ahos-db --remote
 
 echo ""
+echo "🔑 Ensuring Pages project exists..."
+# create the Pages project if it doesn't exist yet
+if ! npx wrangler pages project info ahos >/dev/null 2>&1; then
+  echo "⚙️  Creating Cloudflare Pages project 'ahos'..."
+  npx wrangler pages project create ahos --production-branch=main
+fi
+
 echo "🔑 Setting secrets..."
 if [ -n "${JWT_SECRET:-}" ]; then
   echo "$JWT_SECRET" | npx wrangler pages secret put JWT_SECRET --project-name=ahos
