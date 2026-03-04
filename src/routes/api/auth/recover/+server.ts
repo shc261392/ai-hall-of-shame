@@ -6,6 +6,7 @@ import {
 	verifyBackupCode,
 	hashBackupCode,
 	generateBackupCode,
+	normalizeBackupCode,
 } from "$lib/server/auth";
 import { getClientIp, jsonError } from "$lib/server/middleware";
 import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
@@ -52,8 +53,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		);
 	}
 
-	// Normalize backup code: remove dashes, uppercase
-	const normalizedCode = body.backupCode.replace(/-/g, "").toUpperCase();
+	// Normalize backup code (remove dashes, uppercase) - consistent with hashBackupCode
+	const normalizedCode = normalizeBackupCode(body.backupCode);
 
 	// Find credential with matching backup code
 	const credentials = await db

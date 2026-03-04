@@ -58,7 +58,9 @@ export async function getAuthUser(
 }
 
 export async function hashBackupCode(code: string): Promise<string> {
-	const data = new TextEncoder().encode(code);
+	// Always normalize before hashing to support codes with or without dashes
+	const normalized = normalizeBackupCode(code);
+	const data = new TextEncoder().encode(normalized);
 	const hash = await crypto.subtle.digest("SHA-256", data);
 	return Array.from(new Uint8Array(hash))
 		.map((b) => b.toString(16).padStart(2, "0"))
@@ -94,4 +96,8 @@ export function generateBackupCode(): string {
 		code += chars[bytes[i % 24] % chars.length];
 	}
 	return code.match(/.{4}/g)!.join("-");
+}
+
+export function normalizeBackupCode(code: string): string {
+	return code.replace(/-/g, "").toUpperCase();
 }

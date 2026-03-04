@@ -7,6 +7,7 @@ import {
 	signToken,
 	hashBackupCode,
 	generateBackupCode,
+	normalizeBackupCode,
 } from "$lib/server/auth";
 import { generateUniqueUsername } from "$lib/server/username";
 import { getClientIp, jsonError } from "$lib/server/middleware";
