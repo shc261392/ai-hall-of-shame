@@ -19,18 +19,14 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const rpId = platform!.env.WEBAUTHN_RP_ID;
 	const rpName = platform!.env.WEBAUTHN_RP_NAME;
 	const expectedOrigin =
-		platform!.env.WEBAUTHN_ORIGIN ??
-		(dev ? "http://localhost:5173" : `https://${rpId}`);
+		platform!.env.WEBAUTHN_ORIGIN ?? (dev ? "http://localhost:5173" : `https://${rpId}`);
 
 	// Rate limit registration by IP
 	const ban = await checkBan(db, `ip:${ip}`);
 	if (ban.banned) {
-		return jsonError(
-			403,
-			"banned",
-			`IP suspended. Ban expires: ${ban.expiresAt}`,
-			{ expires_at: ban.expiresAt },
-		);
+		return jsonError(403, "banned", `IP suspended. Ban expires: ${ban.expiresAt}`, {
+			expires_at: ban.expiresAt,
+		});
 	}
 	const limit = await checkRateLimit(db, `ip:${ip}`, "heavy");
 	if (!limit.allowed) {
@@ -52,11 +48,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	if (!body.challengeId || !body.attestation) {
-		return jsonError(
-			400,
-			"invalid_request",
-			"Missing challengeId or attestation",
-		);
+		return jsonError(400, "invalid_request", "Missing challengeId or attestation");
 	}
 
 	// Consume challenge atomically
@@ -68,19 +60,13 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		.first<{ challenge: string }>();
 
 	if (!challengeRow) {
-		return jsonError(
-			400,
-			"invalid_challenge",
-			"Challenge expired, already used, or IP mismatch",
-		);
+		return jsonError(400, "invalid_challenge", "Challenge expired, already used, or IP mismatch");
 	}
 
 	let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
 	try {
 		verification = await verifyRegistrationResponse({
-			response: body.attestation as Parameters<
-				typeof verifyRegistrationResponse
-			>[0]["response"],
+			response: body.attestation as Parameters<typeof verifyRegistrationResponse>[0]["response"],
 			expectedChallenge: challengeRow.challenge,
 			expectedOrigin,
 			expectedRPID: rpId,
@@ -95,15 +81,10 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	if (!verification.verified || !verification.registrationInfo) {
-		return jsonError(
-			400,
-			"verification_failed",
-			"Registration verification failed",
-		);
+		return jsonError(400, "verification_failed", "Registration verification failed");
 	}
 
-	const { credential, credentialDeviceType, credentialBackedUp } =
-		verification.registrationInfo;
+	const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
 
 	// Create user
 	const userId = nanoid();
@@ -113,9 +94,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const backupCodeHash = await hashBackupCode(backupCode);
 
 	await db.batch([
-		db
-			.prepare("INSERT INTO users (id, username) VALUES (?, ?)")
-			.bind(userId, username),
+		db.prepare("INSERT INTO users (id, username) VALUES (?, ?)").bind(userId, username),
 		db
 			.prepare(
 				"INSERT INTO passkey_credentials (id, user_id, public_key, counter, transports, backup_key_hash) VALUES (?, ?, ?, ?, ?, ?)",
@@ -131,13 +110,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	]);
 
 	const remember = !!(body as { remember?: boolean }).remember;
-	const pair = await createTokenPair(
-		userId,
-		username,
-		platform!.env.JWT_SECRET,
-		db,
-		remember,
-	);
+	const pair = await createTokenPair(userId, username, platform!.env.JWT_SECRET, db, remember);
 
 	return json({
 		token: pair.token,
@@ -146,7 +119,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		userId,
 		username,
 		backupCode,
-		message:
-			"Account created! Save your backup code — it will never be shown again.",
+		message: "Account created! Save your backup code — it will never be shown again.",
 	});
 };

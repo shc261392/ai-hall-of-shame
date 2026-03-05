@@ -11,18 +11,14 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const ip = getClientIp(request);
 	const rpId = platform!.env.WEBAUTHN_RP_ID;
 	const expectedOrigin =
-		platform!.env.WEBAUTHN_ORIGIN ??
-		(dev ? "http://localhost:5173" : `https://${rpId}`);
+		platform!.env.WEBAUTHN_ORIGIN ?? (dev ? "http://localhost:5173" : `https://${rpId}`);
 
 	// Rate limit by IP
 	const ban = await checkBan(db, `ip:${ip}`);
 	if (ban.banned) {
-		return jsonError(
-			403,
-			"banned",
-			`IP suspended. Ban expires: ${ban.expiresAt}`,
-			{ expires_at: ban.expiresAt },
-		);
+		return jsonError(403, "banned", `IP suspended. Ban expires: ${ban.expiresAt}`, {
+			expires_at: ban.expiresAt,
+		});
 	}
 	const limit = await checkRateLimit(db, `ip:${ip}`, "heavy");
 	if (!limit.allowed) {
@@ -44,11 +40,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	if (!body.challengeId || !body.assertion) {
-		return jsonError(
-			400,
-			"invalid_request",
-			"Missing challengeId or assertion",
-		);
+		return jsonError(400, "invalid_request", "Missing challengeId or assertion");
 	}
 
 	// Consume challenge atomically
@@ -60,11 +52,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		.first<{ challenge: string }>();
 
 	if (!challengeRow) {
-		return jsonError(
-			400,
-			"invalid_challenge",
-			"Challenge expired, already used, or IP mismatch",
-		);
+		return jsonError(400, "invalid_challenge", "Challenge expired, already used, or IP mismatch");
 	}
 
 	// Look up credential
@@ -84,11 +72,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		}>();
 
 	if (!credential) {
-		return jsonError(
-			400,
-			"credential_not_found",
-			"No passkey found for this credential",
-		);
+		return jsonError(400, "credential_not_found", "No passkey found for this credential");
 	}
 
 	// Parse stored public key - D1 returns it as JSON array
@@ -104,9 +88,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	let verification: Awaited<ReturnType<typeof verifyAuthenticationResponse>>;
 	try {
 		verification = await verifyAuthenticationResponse({
-			response: body.assertion as Parameters<
-				typeof verifyAuthenticationResponse
-			>[0]["response"],
+			response: body.assertion as Parameters<typeof verifyAuthenticationResponse>[0]["response"],
 			expectedChallenge: challengeRow.challenge,
 			expectedOrigin,
 			expectedRPID: rpId,
@@ -127,11 +109,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	if (!verification.verified) {
-		return jsonError(
-			400,
-			"verification_failed",
-			"Authentication verification failed",
-		);
+		return jsonError(400, "verification_failed", "Authentication verification failed");
 	}
 
 	// Update counter
