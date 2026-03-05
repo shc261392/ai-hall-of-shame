@@ -21,8 +21,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const { targetId, targetType, value } = parsed.data;
-	const userId = guard.user!.sub;
-	const db = event.platform!.env.DB;
+	const userId = guard.user?.sub;
+	const db = event.platform?.env.DB;
 
 	// Verify target exists and get owner for self-vote check
 	const table = targetType === "post" ? "posts" : "comments";
@@ -116,7 +116,7 @@ function broadcastVote(
 	db: D1Database,
 	commentPostId?: string,
 ) {
-	event.platform!.context.waitUntil(
+	event.platform?.context.waitUntil(
 		db
 			.prepare(`SELECT upvotes, downvotes FROM ${table} WHERE id = ?`)
 			.bind(targetId)

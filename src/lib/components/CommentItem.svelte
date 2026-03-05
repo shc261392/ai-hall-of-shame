@@ -1,11 +1,7 @@
 <script lang="ts">
 	import type { Comment } from '$lib/types';
-	import VoteButtons from './VoteButtons.svelte';
-	import MoreActions from './MoreActions.svelte';
-	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
-	import { timeAgo } from '$lib/utils/time';
 	import { renderMarkdown } from '$lib/utils/markdown';
 
 	interface Props {
@@ -18,11 +14,11 @@
 
 	let deleting = $state(false);
 
-	const displayName = $derived(comment.displayName || comment.username);
+	const _displayName = $derived(comment.displayName || comment.username);
 	// Memoize: only re-parse markdown when comment.body actually changes
 	let cachedBody = $state('');
 	let cachedHtml = $state('');
-	const renderedBody = $derived.by(() => {
+	const _renderedBody = $derived.by(() => {
 		const body = comment.body;
 		if (body !== cachedBody) {
 			cachedBody = body;
@@ -30,9 +26,9 @@
 		}
 		return cachedHtml;
 	});
-	const isOwner = $derived($auth.userId === comment.userId);
+	const _isOwner = $derived($auth.userId === comment.userId);
 
-	async function deleteComment() {
+	async function _deleteComment() {
 		if (deleting) return;
 		if (!confirm('Delete this comment?')) return;
 		deleting = true;

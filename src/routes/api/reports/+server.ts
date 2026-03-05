@@ -23,8 +23,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const { targetType, targetId, reason } = parsed.data;
-	const userId = guard.user!.sub;
-	const db = event.platform!.env.DB;
+	const userId = guard.user?.sub;
+	const db = event.platform?.env.DB;
 
 	// Verify target exists and is not already deleted
 	const table = targetType === "post" ? "posts" : "comments";

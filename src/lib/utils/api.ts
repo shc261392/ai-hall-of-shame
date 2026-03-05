@@ -9,7 +9,7 @@ class ApiClient {
 		const headers: HeadersInit = { "Content-Type": "application/json" };
 		const state = get(auth);
 		if (state.token) {
-			headers["Authorization"] = `Bearer ${state.token}`;
+			headers.Authorization = `Bearer ${state.token}`;
 		}
 		return headers;
 	}

@@ -16,13 +16,13 @@ export const GET: RequestHandler = async (event) => {
 	if ("error" in guard && guard.error) return guard.error;
 
 	const postId = event.params.id;
-	const db = event.platform!.env.DB;
+	const db = event.platform?.env.DB;
 
 	// Pagination defaults
-	const page = Math.max(1, parseInt(event.url.searchParams.get("page") || "1"));
+	const page = Math.max(1, parseInt(event.url.searchParams.get("page") || "1", 10));
 	const limit = Math.min(
 		50,
-		Math.max(1, parseInt(event.url.searchParams.get("limit") || "50")),
+		Math.max(1, parseInt(event.url.searchParams.get("limit") || "50", 10)),
 	);
 	const offset = (page - 1) * limit;
 
@@ -82,7 +82,7 @@ export const POST: RequestHandler = async (event) => {
 	const guard = await guardPost(event, "light");
 	if ("error" in guard && guard.error) return guard.error;
 	const postId = event.params.id;
-	const db = event.platform!.env.DB;
+	const db = event.platform?.env.DB;
 
 	// Validate body before DB lookup
 	let body: unknown;
@@ -113,7 +113,7 @@ export const POST: RequestHandler = async (event) => {
 			.prepare(
 				"INSERT INTO comments (id, post_id, user_id, body) VALUES (?, ?, ?, ?)",
 			)
-			.bind(commentId, postId, guard.user!.sub, parsed.data.body),
+			.bind(commentId, postId, guard.user?.sub, parsed.data.body),
 		db
 			.prepare(
 				"UPDATE posts SET comment_count = comment_count + 1 WHERE id = ?",
@@ -145,7 +145,7 @@ export const DELETE: RequestHandler = async (event) => {
 	if ("error" in guard && guard.error) return guard.error;
 
 	const postId = event.params.id;
-	const db = event.platform!.env.DB;
+	const db = event.platform?.env.DB;
 	const commentId = event.url.searchParams.get("commentId");
 	if (!commentId)
 		return jsonError(400, "invalid_request", "commentId query param required");
@@ -158,7 +158,7 @@ export const DELETE: RequestHandler = async (event) => {
 		.first<{ user_id: string }>();
 
 	if (!comment) return jsonError(404, "not_found", "Comment not found");
-	if (comment.user_id !== guard.user!.sub)
+	if (comment.user_id !== guard.user?.sub)
 		return jsonError(403, "forbidden", "You can only delete your own comments");
 
 	await db.batch([

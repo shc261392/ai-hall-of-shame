@@ -8,7 +8,7 @@
 
 	let { active, onchange }: Props = $props();
 
-	const tabs: { value: SortOption; label: string }[] = [
+	const _tabs: { value: SortOption; label: string }[] = [
 		{ value: 'trending', label: '🔥 Trending' },
 		{ value: 'top', label: '🏆 Hall of Fame' },
 		{ value: 'latest', label: '🆕 Fresh Fails' }

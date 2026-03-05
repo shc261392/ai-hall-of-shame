@@ -14,7 +14,7 @@ export interface PostPageData {
 }
 
 export const load: ServerLoad = async ({ platform, params }) => {
-	const db = platform!.env.DB;
+	const db = platform?.env.DB;
 	const postId = params.id;
 
 	const post = await db

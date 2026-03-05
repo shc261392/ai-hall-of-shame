@@ -11,7 +11,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		userId: string;
 		username: string;
 	};
-	const db = platform!.env.DB;
+	const db = platform?.env.DB;
 	await db
 		.prepare("INSERT OR IGNORE INTO users (id, username) VALUES (?, ?)")
 		.bind(userId, username)

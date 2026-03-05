@@ -25,8 +25,8 @@
 
 	let mode = $state<"write" | "preview">("write");
 
-	const renderedHtml = $derived(mode === "preview" ? renderMarkdown(value) : "");
-	const editorId = `markdown-editor-${Math.random().toString(36).substr(2, 9)}`;
+	const _renderedHtml = $derived(mode === "preview" ? renderMarkdown(value) : "");
+	const _editorId = `markdown-editor-${Math.random().toString(36).substr(2, 9)}`;
 </script>
 
 <div class="markdown-editor-container">

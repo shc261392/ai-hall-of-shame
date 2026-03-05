@@ -18,6 +18,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm ci:lint
+
       - run: pnpm check
 
       - run: pnpm build

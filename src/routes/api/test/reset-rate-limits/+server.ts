@@ -7,7 +7,7 @@ export const POST: RequestHandler = async ({ platform }) => {
 	if (!dev) {
 		return json({ error: "not_found" }, { status: 404 });
 	}
-	const db = platform!.env.DB;
+	const db = platform?.env.DB;
 	await db.batch([
 		db.prepare("DELETE FROM rate_limits"),
 		db.prepare("DELETE FROM bans"),

@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { auth, updateDisplayName, logout } from "$lib/stores/auth";
+	import { updateDisplayName, logout } from "$lib/stores/auth";
 	import { api } from "$lib/utils/api";
-	import ApiKeySection from "./ApiKeySection.svelte";
 
 	interface Props {
 		onclose: () => void;
@@ -10,10 +9,10 @@
 	let { onclose }: Props = $props();
 
 	let displayName = $state($auth.displayName || "");
-	let loading = $state(false);
-	let loadingUser = $state(false);
-	let error = $state("");
-	let success = $state(false);
+	let _loading = $state(false);
+	let _loadingUser = $state(false);
+	let _error = $state("");
+	let _success = $state(false);
 
 	// Fetch current user data if displayName not in auth store
 	$effect(() => {
@@ -23,7 +22,7 @@
 	});
 
 	async function fetchUserData() {
-		loadingUser = true;
+		_loadingUser = true;
 		try {
 			const data = await api.get<{ displayName?: string }>("/api/auth/me");
 			if (data.displayName) {
@@ -33,7 +32,7 @@
 		} catch (err) {
 			console.error("Failed to fetch user data:", err);
 		} finally {
-			loadingUser = false;
+			_loadingUser = false;
 		}
 	}
 
@@ -43,12 +42,12 @@
 			/^[a-zA-Z0-9_]+$/.test(displayName),
 	);
 
-	async function handleSave() {
+	async function _handleSave() {
 		if (!isValid) return;
 
-		loading = true;
-		error = "";
-		success = false;
+		_loading = true;
+		_error = "";
+		_success = false;
 
 		try {
 			const data = await api.patch<{ displayName: string }>("/api/auth/me", {
@@ -56,24 +55,24 @@
 			});
 
 			updateDisplayName(data.displayName);
-			success = true;
+			_success = true;
 			setTimeout(() => onclose(), 1500);
 		} catch (err: any) {
 			if (err.error === "display_name_taken") {
-				error = "This display name is already taken";
+				_error = "This display name is already taken";
 			} else {
-				error = err.message || "Failed to update display name";
+				_error = err.message || "Failed to update display name";
 			}
 		} finally {
-			loading = false;
+			_loading = false;
 		}
 	}
 
-	function handleBackdropClick(e: MouseEvent) {
+	function _handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) onclose();
 	}
 
-	async function handleSignOut() {
+	async function _handleSignOut() {
 		try {
 			await api.delete('/api/auth/refresh');
 		} catch {

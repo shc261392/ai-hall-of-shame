@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores';
 
-	const statusCode = $derived($page.status);
-	const errorMessage = $derived($page.error?.message || 'Something went wrong');
+
+	const _statusCode = $derived($page.status);
+	const _errorMessage = $derived($page.error?.message || 'Something went wrong');
 </script>
 
 <svelte:head>

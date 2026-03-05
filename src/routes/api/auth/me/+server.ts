@@ -7,19 +7,19 @@ import {
 	displayNameUpdateSchema,
 } from "$lib/server/validation";
 import { isReservedUsername } from "$lib/server/username";
-import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
+import { checkRateLimit } from "$lib/server/ratelimit";
 
 export const GET: RequestHandler = async ({ request, platform }) => {
 	const user = await resolveAuth(
 		request,
-		platform!.env.JWT_SECRET,
-		platform!.env.DB,
+		platform?.env.JWT_SECRET,
+		platform?.env.DB,
 	);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
 
-	const row = await platform!.env.DB.prepare(
+	const row = await platform?.env.DB.prepare(
 		"SELECT id, username, display_name, created_at FROM users WHERE id = ?",
 	)
 		.bind(user.sub)
@@ -45,16 +45,16 @@ export const GET: RequestHandler = async ({ request, platform }) => {
 export const PATCH: RequestHandler = async ({ request, platform }) => {
 	const user = await resolveAuth(
 		request,
-		platform!.env.JWT_SECRET,
-		platform!.env.DB,
+		platform?.env.JWT_SECRET,
+		platform?.env.DB,
 	);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
 
 	// Rate limit profile updates
-	const db = platform!.env.DB;
-	const ip = getClientIp(request);
+	const db = platform?.env.DB;
+	const _ip = getClientIp(request);
 	const limit = await checkRateLimit(db, user.sub, "light");
 	if (!limit.allowed) {
 		return jsonError(
@@ -135,7 +135,7 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 	const token = await signToken(
 		user.sub,
 		newUsername,
-		platform!.env.JWT_SECRET,
+		platform?.env.JWT_SECRET,
 	);
 
 	return json({ token, username: newUsername });

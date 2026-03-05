@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
-	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
 
 	let title = $state('');
 	let body = $state('');
@@ -16,7 +14,7 @@
 		}
 	});
 
-	async function handleSubmit(e: Event) {
+	async function _handleSubmit(e: Event) {
 		e.preventDefault();
 		if (!title.trim() || submitting) return;
 		submitting = true;

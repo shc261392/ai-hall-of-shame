@@ -7,16 +7,16 @@
 	}
 
 	let { code, onclose }: Props = $props();
-	let confirmed = $state(false);
+	let _confirmed = $state(false);
 	let copied = $state(false);
 
-	async function copyCode() {
+	async function _copyCode() {
 		await navigator.clipboard.writeText(code);
 		copied = true;
 		setTimeout(() => (copied = false), 2000);
 	}
 
-	function initFocusTrap(node: HTMLElement) {
+	function _initFocusTrap(node: HTMLElement) {
 		const cleanup = trapFocus(node);
 		return { destroy: cleanup };
 	}

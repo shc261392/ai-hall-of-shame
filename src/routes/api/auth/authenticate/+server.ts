@@ -7,11 +7,11 @@ import { getClientIp, jsonError } from "$lib/server/middleware";
 import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
 export const POST: RequestHandler = async ({ request, platform }) => {
-	const db = platform!.env.DB;
+	const db = platform?.env.DB;
 	const ip = getClientIp(request);
-	const rpId = platform!.env.WEBAUTHN_RP_ID;
+	const rpId = platform?.env.WEBAUTHN_RP_ID;
 	const expectedOrigin =
-		platform!.env.WEBAUTHN_ORIGIN ??
+		platform?.env.WEBAUTHN_ORIGIN ??
 		(dev ? "http://localhost:5173" : `https://${rpId}`);
 
 	// Rate limit by IP
@@ -101,7 +101,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		publicKeyBytes = new Uint8Array(credential.public_key as number[]);
 	}
 
-	let verification;
+	let verification: Awaited<ReturnType<typeof verifyAuthenticationResponse>>;
 	try {
 		verification = await verifyAuthenticationResponse({
 			response: body.assertion as Parameters<
@@ -154,7 +154,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const pair = await createTokenPair(
 		user.id,
 		user.username,
-		platform!.env.JWT_SECRET,
+		platform?.env.JWT_SECRET,
 		db,
 		remember,
 	);

@@ -19,7 +19,7 @@ export const GET: RequestHandler = async (event) => {
 	if ("error" in guard && guard.error) return guard.error;
 
 	const postId = event.params.id;
-	const db = event.platform!.env.DB;
+	const db = event.platform?.env.DB;
 
 	const post = await db
 		.prepare(
@@ -92,7 +92,7 @@ export const DELETE: RequestHandler = async (event) => {
 	if ("error" in guard && guard.error) return guard.error;
 
 	const postId = event.params.id;
-	const db = event.platform!.env.DB;
+	const db = event.platform?.env.DB;
 
 	const post = await db
 		.prepare("SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL")
@@ -100,7 +100,7 @@ export const DELETE: RequestHandler = async (event) => {
 		.first<{ user_id: string }>();
 
 	if (!post) return jsonError(404, "not_found", "Post not found");
-	if (post.user_id !== guard.user!.sub)
+	if (post.user_id !== guard.user?.sub)
 		return jsonError(403, "forbidden", "You can only delete your own posts");
 
 	await db

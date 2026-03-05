@@ -10,7 +10,7 @@ import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
 /** Rotate refresh token → new access + refresh token pair. */
 export const POST: RequestHandler = async ({ request, platform }) => {
-	const db = platform!.env.DB;
+	const db = platform?.env.DB;
 
 	// Rate limit refresh requests by IP
 	const ip = getClientIp(request);
@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	const result = await rotateRefreshToken(
 		body.refreshToken,
-		platform!.env.JWT_SECRET,
+		platform?.env.JWT_SECRET,
 		db,
 	);
 
@@ -69,7 +69,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 /** Revoke refresh token (logout). */
 export const DELETE: RequestHandler = async ({ request, platform }) => {
-	const db = platform!.env.DB;
+	const db = platform?.env.DB;
 
 	let body: { refreshToken?: string };
 	try {
@@ -82,7 +82,7 @@ export const DELETE: RequestHandler = async ({ request, platform }) => {
 		await revokeRefreshToken(db, body.refreshToken);
 	} else {
 		// If no specific token, revoke all tokens for the authenticated user
-		const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
+		const user = await resolveAuth(request, platform?.env.JWT_SECRET, db);
 		if (user) {
 			await revokeRefreshTokens(db, user.sub);
 		}

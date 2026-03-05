@@ -1,13 +1,13 @@
 import { json } from "@sveltejs/kit";
 import { nanoid } from "nanoid";
 import type { RequestHandler } from "./$types";
-import { getClientIp, guardGet, jsonError } from "$lib/server/middleware";
+import { guardGet, jsonError } from "$lib/server/middleware";
 
 export const GET: RequestHandler = async (event) => {
 	const guard = await guardGet(event);
 	if ("error" in guard && guard.error) return guard.error;
 
-	const db = event.platform!.env.DB;
+	const db = event.platform?.env.DB;
 	const ip = guard.ip;
 	const purpose = event.url.searchParams.get("purpose");
 

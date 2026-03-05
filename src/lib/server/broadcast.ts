@@ -14,7 +14,7 @@ export function broadcast(
 
 	const id = liveRoom.idFromName(channel);
 	const stub = liveRoom.get(id);
-	platform!.context.waitUntil(
+	platform?.context.waitUntil(
 		stub
 			.fetch("https://do/broadcast", {
 				method: "POST",

@@ -21,7 +21,7 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const { postId, emoji } = parsed.data;
-	const db = event.platform!.env.DB;
+	const db = event.platform?.env.DB;
 	const userId = (guard as { user: { sub: string } }).user.sub;
 
 	// Verify post exists and is not deleted

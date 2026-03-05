@@ -1,19 +1,18 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { auth, logout } from '$lib/stores/auth';
+	import { logout } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
-	import PasskeyAuth from './PasskeyAuth.svelte';
 
-	let showAuth = $state(false);
+	let _showAuth = $state(false);
 	const openProfile = getContext<(username: string) => void>('openProfile');
 
-	function handleProfileClick() {
+	function _handleProfileClick() {
 		if ($auth.username) {
 			openProfile($auth.username);
 		}
 	}
 
-	async function handleLogout() {
+	async function _handleLogout() {
 		try {
 			await api.delete('/api/auth/refresh');
 		} catch {

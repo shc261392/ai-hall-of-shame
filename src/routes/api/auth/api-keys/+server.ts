@@ -12,12 +12,12 @@ import { checkRateLimit } from "$lib/server/ratelimit";
 
 /** List all API keys for the authenticated user. */
 export const GET: RequestHandler = async ({ request, platform }) => {
-	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+	const user = await getAuthUser(request, platform?.env.JWT_SECRET);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
 
-	const keys = await listApiKeys(user.sub, platform!.env.DB);
+	const keys = await listApiKeys(user.sub, platform?.env.DB);
 
 	return json({
 		keys: keys.map((k) => ({
@@ -35,7 +35,7 @@ export const GET: RequestHandler = async ({ request, platform }) => {
 
 /** Create a new API key. Requires JWT auth (not API key auth — can't bootstrap keys with keys). */
 export const POST: RequestHandler = async ({ request, platform }) => {
-	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+	const user = await getAuthUser(request, platform?.env.JWT_SECRET);
 	if (!user) {
 		return jsonError(
 			401,
@@ -44,8 +44,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		);
 	}
 
-	const db = platform!.env.DB;
-	const ip = getClientIp(request);
+	const db = platform?.env.DB;
+	const _ip = getClientIp(request);
 
 	// Rate limit key creation
 	const limit = await checkRateLimit(db, user.sub, "heavy");
@@ -92,7 +92,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 /** Revoke an API key by ID. */
 export const DELETE: RequestHandler = async ({ request, platform, url }) => {
-	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+	const user = await getAuthUser(request, platform?.env.JWT_SECRET);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
@@ -102,7 +102,7 @@ export const DELETE: RequestHandler = async ({ request, platform, url }) => {
 		return jsonError(400, "invalid_request", "Missing key id parameter");
 	}
 
-	const deleted = await deleteApiKey(keyId, user.sub, platform!.env.DB);
+	const deleted = await deleteApiKey(keyId, user.sub, platform?.env.DB);
 	if (!deleted) {
 		return jsonError(404, "not_found", "API key not found or not yours");
 	}
