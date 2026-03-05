@@ -1,7 +1,7 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { getAuthUser, signToken } from "$lib/server/auth";
-import { getClientIp, jsonError } from "$lib/server/middleware";
+import { signToken } from "$lib/server/auth";
+import { getClientIp, jsonError, resolveAuth } from "$lib/server/middleware";
 import {
 	usernameUpdateSchema,
 	displayNameUpdateSchema,
@@ -10,7 +10,11 @@ import { isReservedUsername } from "$lib/server/username";
 import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
 export const GET: RequestHandler = async ({ request, platform }) => {
-	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+	const user = await resolveAuth(
+		request,
+		platform!.env.JWT_SECRET,
+		platform!.env.DB,
+	);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
@@ -39,7 +43,11 @@ export const GET: RequestHandler = async ({ request, platform }) => {
 };
 
 export const PATCH: RequestHandler = async ({ request, platform }) => {
-	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+	const user = await resolveAuth(
+		request,
+		platform!.env.JWT_SECRET,
+		platform!.env.DB,
+	);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}

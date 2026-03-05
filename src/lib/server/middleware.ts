@@ -19,7 +19,7 @@ export function getClientIp(request: Request): string {
 }
 
 /** Try JWT auth first, then fall back to API key auth. */
-async function resolveAuth(
+export async function resolveAuth(
 	request: Request,
 	jwtSecret: string,
 	db: D1Database,

@@ -3,10 +3,9 @@ import type { RequestHandler } from "./$types";
 import {
 	rotateRefreshToken,
 	revokeRefreshToken,
-	getAuthUser,
 	revokeRefreshTokens,
 } from "$lib/server/auth";
-import { getClientIp, jsonError } from "$lib/server/middleware";
+import { getClientIp, jsonError, resolveAuth } from "$lib/server/middleware";
 import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
 /** Rotate refresh token → new access + refresh token pair. */
@@ -83,7 +82,7 @@ export const DELETE: RequestHandler = async ({ request, platform }) => {
 		await revokeRefreshToken(db, body.refreshToken);
 	} else {
 		// If no specific token, revoke all tokens for the authenticated user
-		const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+		const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
 		if (user) {
 			await revokeRefreshTokens(db, user.sub);
 		}
