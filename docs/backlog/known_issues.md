@@ -4,18 +4,36 @@
 > Critical, High, and Blocker issues are fixed immediately.
 > Medium and Low items are tracked here for future work.
 >
-> Last updated after Phase 3 tags/search/golden/AI review session.
+> Last updated after Phase 4 (CI/CD, docs consolidation, 121 tests passing).
 
 ---
 
 ## Table of Contents
 
+- [Architecture Decisions](#architecture-decisions)
 - [Security](#security)
 - [Database](#database)
 - [Performance](#performance)
 - [UI/UX & Accessibility](#uiux--accessibility)
 - [Code Quality](#code-quality)
 - [Architecture](#architecture)
+
+---
+
+## Architecture Decisions
+
+### ADR-001: Pure Worker Deployment (over Pages + DO Worker)
+**Date**: 2026-03-06 · **Status**: Accepted
+
+The project migrated from Cloudflare Pages + separate DO Worker to a **pure Worker + Durable Objects** architecture. Rationale:
+- **Single deployable unit** — one `wrangler.toml`, one `wrangler deploy` command, no deploy ordering risk.
+- **Identical free-tier cost** — Pages Functions and Workers share the same 100K/day request pool; DO quota is separate either way.
+- **Broader feature set** — Workers support Cron Triggers, Workers Logs, Logpush, Gradual Deployments, and the Cloudflare Vite Plugin — none available on Pages.
+- **Strategic alignment** — Cloudflare's official migration guide and compatibility matrix signal Workers as the long-term platform.
+- The SvelteKit adapter (`@sveltejs/adapter-cloudflare`) works unchanged for both Pages and Worker targets.
+
+### ADR-002: Durable Object Live Updates are Optional
+The `LiveRoom` DO provides real-time SSE broadcasting for votes, comments, and reactions. It is **purely additive** — all CRUD works without it. `broadcast()` returns early if the DO binding is unavailable, and the SSE client retries 5 times then stops gracefully.
 
 ---
 
