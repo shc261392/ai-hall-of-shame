@@ -2,7 +2,16 @@ import type { Handle } from "@sveltejs/kit";
 
 const ALLOWED_ORIGIN = "https://hallofshame.cc";
 
-// Edge cache TTLs in seconds — matched top-to-bottom
+/**
+ * Cache-Control TTLs for SSR pages.
+ * Set as response headers — Cloudflare's edge cache respects these natively.
+ *
+ * We intentionally do NOT use the Workers Cache API (`caches.default`) because:
+ * 1. It creates a double-cache layer with CF's outer CDN cache, risking cache
+ *    poisoning (e.g. SvelteKit __data.json responses cached and served as HTML).
+ * 2. It doesn't distinguish between HTML and data requests on the same URL.
+ * 3. Cache-Control headers give us the same edge caching with zero risk.
+ */
 const SSR_CACHE_RULES: [RegExp, number][] = [
 	[/^\/sitemap\.xml$/, 3600], // 1 hour
 	[/^\/$/, 60], // 60 seconds
@@ -14,17 +23,6 @@ function getCacheTTL(pathname: string): number | null {
 		if (pattern.test(pathname)) return ttl;
 	}
 	return null;
-}
-
-/** Normalize cache key to prevent cache pollution from random query params */
-function getCacheKey(url: URL): string {
-	const pathname = url.pathname;
-	if (pathname === "/") {
-		const sort = url.searchParams.get("sort") || "trending";
-		return `${url.origin}/?sort=${sort}`;
-	}
-	// sitemap and post detail: path only, no query params
-	return `${url.origin}${pathname}`;
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -44,46 +42,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		});
 	}
 
-	// Edge caching for SSR pages and sitemap (CF Cache API)
-	if (event.request.method === "GET" && typeof caches !== "undefined") {
-		const ttl = getCacheTTL(event.url.pathname);
-		if (ttl !== null) {
-			const cache = (caches as any).default as Cache;
-			const cacheKey = new Request(getCacheKey(event.url), {
-				method: "GET",
-			});
-
-			const cached = await cache.match(cacheKey);
-			if (cached) return cached;
-
-			const response = await resolve(event);
-
-			if (response.ok) {
-				const headers = new Headers(response.headers);
-				headers.set("Cache-Control", `public, max-age=${ttl}`);
-
-				const enhanced = new Response(response.clone().body, {
-					status: response.status,
-					statusText: response.statusText,
-					headers,
-				});
-
-				event.platform?.context.waitUntil(
-					cache.put(cacheKey, enhanced.clone()),
-				);
-				return enhanced;
-			}
-
-			return response;
-		}
-	}
-
 	const response = await resolve(event);
 
-	// Add CORS headers to all API responses
+	// Add CORS headers to all API responses (clone to handle immutable headers from DO SSE)
 	if (event.url.pathname.startsWith("/api/")) {
-		// Some responses (e.g. SSE from Durable Objects) have immutable headers.
-		// Clone into a new Response with mutable headers.
 		const headers = new Headers(response.headers);
 		headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
 		return new Response(response.body, {
@@ -91,6 +53,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 			statusText: response.statusText,
 			headers,
 		});
+	}
+
+	// Set Cache-Control on SSR HTML pages — only for actual HTML (not __data.json)
+	if (
+		event.request.method === "GET" &&
+		response.ok &&
+		response.headers.get("content-type")?.includes("text/html")
+	) {
+		const ttl = getCacheTTL(event.url.pathname);
+		if (ttl !== null) {
+			const headers = new Headers(response.headers);
+			headers.set("Cache-Control", `public, s-maxage=${ttl}, max-age=0`);
+			return new Response(response.body, {
+				status: response.status,
+				statusText: response.statusText,
+				headers,
+			});
+		}
 	}
 
 	return response;
