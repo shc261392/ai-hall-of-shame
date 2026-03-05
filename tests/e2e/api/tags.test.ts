@@ -366,10 +366,11 @@ test.describe("AI auto-tagging — fail-open behavior", () => {
 		expect(res.status()).toBe(201);
 		const { id } = await res.json();
 
-		// AI tagging is async (waitUntil). Poll up to 15s for tags to appear.
+		// AI tagging is async (waitUntil). Poll for tags to appear.
+		// Use shorter intervals to stay within Playwright's 15s timeout.
 		let tags: string[] = [];
 		for (let attempt = 0; attempt < 5; attempt++) {
-			await new Promise((r) => setTimeout(r, 3000));
+			await new Promise((r) => setTimeout(r, 1000));
 			const getRes = await request.get(`${BASE}/api/posts/${id}`);
 			const post = await getRes.json();
 			tags = post.tags;
@@ -399,8 +400,8 @@ test.describe("AI auto-tagging — fail-open behavior", () => {
 		expect(res.status()).toBe(201);
 		const { id } = await res.json();
 
-		// Wait for AI to process
-		await new Promise((r) => setTimeout(r, 8000));
+		// Wait briefly for AI to process (if binding exists)
+		await new Promise((r) => setTimeout(r, 3000));
 		const getRes = await request.get(`${BASE}/api/posts/${id}`);
 		const post = await getRes.json();
 		expect(post.tags.length).toBeLessThanOrEqual(3);
@@ -418,10 +419,10 @@ test.describe("AI auto-tagging — fail-open behavior", () => {
 		expect(res.status()).toBe(201);
 		const { id } = await res.json();
 
-		// Poll for AI tags
+		// Poll for AI tags (shorter intervals to stay within 15s timeout)
 		let aiTags: string[] = [];
 		for (let attempt = 0; attempt < 5; attempt++) {
-			await new Promise((r) => setTimeout(r, 3000));
+			await new Promise((r) => setTimeout(r, 1000));
 			const getRes = await request.get(`${BASE}/api/posts/${id}`);
 			aiTags = (await getRes.json()).tags;
 			if (aiTags.length > 0) break;
