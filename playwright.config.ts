@@ -39,7 +39,7 @@ export default defineConfig({
 	// a duplicate when one is already listening.
 	webServer: {
 		command: "pnpm dev",
-		url: BASE_URL,
+		url: `${BASE_URL}/api/heartbeat`,
 		reuseExistingServer: true,
 		timeout: 30_000,
 	},
