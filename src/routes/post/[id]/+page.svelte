@@ -27,8 +27,9 @@
 	const postId = $derived($page.params.id);
 	const displayName = $derived(post?.displayName || post?.username || 'unknown');
 	// Track body separately to avoid re-parsing markdown on vote/reaction live events
-	let cachedBody = $state('');
-	let cachedHtml = $state('');
+	// Plain variables (not $state) so mutation inside $derived doesn't trigger state_unsafe_mutation
+	let cachedBody = '';
+	let cachedHtml = '';
 	const renderedBody = $derived.by(() => {
 		const body = post?.body ?? '';
 		if (body !== cachedBody) {

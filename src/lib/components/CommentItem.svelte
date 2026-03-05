@@ -20,8 +20,9 @@
 
 	const displayName = $derived(comment.displayName || comment.username);
 	// Memoize: only re-parse markdown when comment.body actually changes
-	let cachedBody = $state('');
-	let cachedHtml = $state('');
+	// Plain variables (not $state) so mutation inside $derived doesn't trigger state_unsafe_mutation
+	let cachedBody = '';
+	let cachedHtml = '';
 	const renderedBody = $derived.by(() => {
 		const body = comment.body;
 		if (body !== cachedBody) {

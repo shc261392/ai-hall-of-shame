@@ -82,7 +82,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Add CORS headers to all API responses
 	if (event.url.pathname.startsWith("/api/")) {
-		response.headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+		// Some responses (e.g. SSE from Durable Objects) have immutable headers.
+		// Clone into a new Response with mutable headers.
+		const headers = new Headers(response.headers);
+		headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers,
+		});
 	}
 
 	return response;
