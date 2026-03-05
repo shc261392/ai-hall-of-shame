@@ -27,10 +27,7 @@ function getCacheTTL(pathname: string): number | null {
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Handle OPTIONS preflight requests without hitting route logic
-	if (
-		event.request.method === "OPTIONS" &&
-		event.url.pathname.startsWith("/api/")
-	) {
+	if (event.request.method === "OPTIONS" && event.url.pathname.startsWith("/api/")) {
 		return new Response(null, {
 			status: 204,
 			headers: {
