@@ -1,11 +1,6 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import {
-	getAuthUser,
-	createApiKey,
-	listApiKeys,
-	deleteApiKey,
-} from "$lib/server/auth";
+import { getAuthUser, createApiKey, listApiKeys, deleteApiKey } from "$lib/server/auth";
 import { getClientIp, jsonError } from "$lib/server/middleware";
 import { apiKeyCreateSchema } from "$lib/server/validation";
 import { checkRateLimit } from "$lib/server/ratelimit";
@@ -24,9 +19,7 @@ export const GET: RequestHandler = async ({ request, platform }) => {
 			id: k.id,
 			name: k.name,
 			prefix: k.key_prefix,
-			lastUsedAt: k.last_used_at
-				? new Date(k.last_used_at * 1000).toISOString()
-				: null,
+			lastUsedAt: k.last_used_at ? new Date(k.last_used_at * 1000).toISOString() : null,
 			expiresAt: new Date(k.expires_at * 1000).toISOString(),
 			createdAt: new Date(k.created_at * 1000).toISOString(),
 		})),

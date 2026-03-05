@@ -42,10 +42,7 @@ export const displayNameUpdateSchema = z.object({
 		.trim()
 		.min(1, "Display name must be at least 1 character")
 		.max(20, "Display name must be 20 characters or less")
-		.regex(
-			/^[a-zA-Z0-9_]+$/,
-			"Display name can only contain letters, numbers, and underscores",
-		),
+		.regex(/^[a-zA-Z0-9_]+$/, "Display name can only contain letters, numbers, and underscores"),
 });
 
 export const voteSchema = z.object({
