@@ -34,13 +34,14 @@ export default defineConfig({
 	],
 
 	// Start vite dev server before running tests.
-	// In CI the server is started explicitly by the workflow for better
-	// diagnostic output; reuseExistingServer lets Playwright skip spawning
-	// a duplicate when one is already listening.
-	webServer: {
-		command: "pnpm dev",
-		url: `${BASE_URL}/api/heartbeat`,
-		reuseExistingServer: true,
-		timeout: 30_000,
-	},
+	// In CI the server is managed by the workflow for better diagnostics,
+	// so we skip Playwright's built-in webServer handling entirely.
+	webServer: process.env.CI
+		? undefined
+		: {
+				command: "pnpm dev",
+				url: `${BASE_URL}/api/heartbeat`,
+				reuseExistingServer: true,
+				timeout: 30_000,
+			},
 });
