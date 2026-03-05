@@ -60,18 +60,40 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Create .env file
+      - name: Create config files
         run: |
-          echo 'JWT_SECRET=ci-test-secret-that-is-long-enough-for-hs256' > .env
-          echo 'WEBAUTHN_RP_ID=localhost' >> .env
-          echo 'WEBAUTHN_RP_NAME=AHOS-CI' >> .env
-          echo 'WEBAUTHN_ORIGIN=http://localhost:5173' >> .env
-          echo 'ENVIRONMENT=development' >> .env
+          cat > .dev.vars << 'EOF'
+          JWT_SECRET=ci-test-secret-that-is-long-enough-for-hs256
+          WEBAUTHN_RP_ID=localhost
+          WEBAUTHN_RP_NAME=AHOS-CI
+          WEBAUTHN_ORIGIN=http://localhost:5173
+          ENVIRONMENT=development
+          EOF
+          cp .dev.vars .env
 
       - name: Setup local D1 database
         run: pnpm dev:setup
 
       - run: pnpm exec svelte-kit sync
+
+      - name: Start dev server
+        run: |
+          pnpm dev > /tmp/server.log 2>&1 &
+          echo "DEV_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for dev server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:5173 >/dev/null 2>&1; then
+              echo "Server ready in ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Dev server failed to start within 60s"
+          cat /tmp/server.log
+          exit 1
+
       - run: pnpm test:e2e
 
   deploy:

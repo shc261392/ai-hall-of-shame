@@ -34,12 +34,13 @@ export default defineConfig({
 	],
 
 	// Start vite dev server before running tests.
-	// CI needs extra time: workerd (Cloudflare platform proxy) cold-starts on a
-	// 2-core runner, so 30s isn't enough. 120s gives comfortable headroom.
+	// In CI the server is started explicitly by the workflow for better
+	// diagnostic output; reuseExistingServer lets Playwright skip spawning
+	// a duplicate when one is already listening.
 	webServer: {
 		command: "pnpm dev",
 		url: BASE_URL,
-		reuseExistingServer: !process.env.CI,
-		timeout: process.env.CI ? 120_000 : 30_000,
+		reuseExistingServer: true,
+		timeout: 30_000,
 	},
 });
