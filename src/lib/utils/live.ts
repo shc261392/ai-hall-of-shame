@@ -15,11 +15,11 @@ export type LiveEvent = {
 
 type LiveHandler = (evt: LiveEvent) => void;
 
-const MAX_RETRIES = 5;
-const BASE_DELAY_MS = 1_000;
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 2_000;
 const MAX_DELAY_MS = 30_000;
 const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1_000; // 5 minutes
-const CIRCUIT_BREAKER_THRESHOLD = 5;
+const CIRCUIT_BREAKER_THRESHOLD = 3;
 
 /** Session-scoped circuit breaker state (shared across all LiveConnections). */
 const circuitBreaker = {
@@ -65,7 +65,9 @@ export class LiveConnection {
 
 	constructor(channel: string) {
 		this.channel = channel;
-		this.connect();
+		if (typeof window !== "undefined") {
+			this.connect();
+		}
 	}
 
 	on(handler: LiveHandler) {

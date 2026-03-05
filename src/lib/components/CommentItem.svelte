@@ -19,7 +19,17 @@
 	let deleting = $state(false);
 
 	const displayName = $derived(comment.displayName || comment.username);
-	const renderedBody = $derived(renderMarkdown(comment.body));
+	// Memoize: only re-parse markdown when comment.body actually changes
+	let cachedBody = $state('');
+	let cachedHtml = $state('');
+	const renderedBody = $derived.by(() => {
+		const body = comment.body;
+		if (body !== cachedBody) {
+			cachedBody = body;
+			cachedHtml = renderMarkdown(body);
+		}
+		return cachedHtml;
+	});
 	const isOwner = $derived($auth.userId === comment.userId);
 
 	async function deleteComment() {

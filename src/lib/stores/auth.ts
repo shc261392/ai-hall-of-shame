@@ -214,8 +214,8 @@ export async function tryRefresh(): Promise<string | null> {
 	}
 }
 
-// On load, schedule refresh if we have a token
-if (initial.token && initial.expiresAt) {
+// On load, schedule refresh if we have a token (client-only)
+if (typeof window !== "undefined" && initial.token && initial.expiresAt) {
 	const remaining = Math.max(0, (initial.expiresAt - Date.now()) / 1000);
 	if (remaining > 0) {
 		scheduleRefresh(remaining);

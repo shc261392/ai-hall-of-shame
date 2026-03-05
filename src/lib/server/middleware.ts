@@ -1,7 +1,7 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { json } from "@sveltejs/kit";
 import { dev } from "$app/environment";
-import { getAuthUser } from "./auth";
+import { getAuthUser, getAuthToken, verifyApiKey } from "./auth";
 import type { RateLimitTier } from "./ratelimit";
 import {
 	checkBan,
@@ -18,6 +18,25 @@ export function getClientIp(request: Request): string {
 	);
 }
 
+/** Try JWT auth first, then fall back to API key auth. */
+async function resolveAuth(
+	request: Request,
+	jwtSecret: string,
+	db: D1Database,
+): Promise<{ sub: string; username: string } | null> {
+	// Try JWT first
+	const jwtUser = await getAuthUser(request, jwtSecret);
+	if (jwtUser) return jwtUser;
+
+	// Fall back to API key (same Authorization: Bearer header)
+	const token = getAuthToken(request);
+	if (token && token.startsWith("pak_")) {
+		return verifyApiKey(token, db);
+	}
+
+	return null;
+}
+
 export function jsonError(
 	status: number,
 	error: string,
@@ -31,7 +50,10 @@ const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
 /** Run ban + rate limit + optional auth checks for POST endpoints.
  *  tier: "heavy" for expensive ops (create post, register), "light" for cheap ops (vote, react, comment). */
-export async function guardPost(event: RequestEvent, tier: RateLimitTier = "heavy") {
+export async function guardPost(
+	event: RequestEvent,
+	tier: RateLimitTier = "heavy",
+) {
 	const { request, platform } = event;
 	const db = platform!.env.DB;
 	const ip = getClientIp(request);
@@ -59,7 +81,7 @@ export async function guardPost(event: RequestEvent, tier: RateLimitTier = "heav
 	}
 
 	// Auth required for POST
-	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+	const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
 	if (!user) {
 		return {
 			error: jsonError(
@@ -172,8 +194,8 @@ export async function guardGet(event: RequestEvent) {
 		};
 	}
 
-	// Optional auth (for user vote status)
-	const user = await getAuthUser(request, platform!.env.JWT_SECRET);
+	// Optional auth (for user vote status) — supports JWT and API keys
+	const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
 
 	return { user, ip };
 }

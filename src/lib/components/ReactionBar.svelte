@@ -28,12 +28,27 @@
 	let visibleReactions = $derived(localReactions.filter((r) => r.count > 0));
 
 	function clickOutside(node: HTMLElement, handler: () => void) {
+		// Only listen while picker is open — added/removed via $effect
 		const handle = (e: MouseEvent) => {
 			if (!node.contains(e.target as Node)) handler();
 		};
-		document.addEventListener('mousedown', handle, true);
-		return { destroy() { document.removeEventListener('mousedown', handle, true); } };
+		return {
+			start() { document.addEventListener('mousedown', handle, true); },
+			stop() { document.removeEventListener('mousedown', handle, true); },
+			destroy() { document.removeEventListener('mousedown', handle, true); }
+		};
 	}
+
+	let pickerNode: HTMLDivElement | undefined = $state();
+	let clickOutsideHandle: ReturnType<typeof clickOutside> | null = null;
+
+	$effect(() => {
+		if (showPicker && pickerNode) {
+			clickOutsideHandle = clickOutside(pickerNode, () => (showPicker = false));
+			clickOutsideHandle.start();
+			return () => clickOutsideHandle?.stop();
+		}
+	});
 
 	async function toggle(emoji: ReactionEmoji) {
 		if (!$auth.token) {
@@ -96,7 +111,7 @@
 	<!-- Add reaction picker -->
 	<div
 		class="relative"
-		use:clickOutside={() => (showPicker = false)}
+		bind:this={pickerNode}
 	>
 		<button
 			onclick={() => (showPicker = !showPicker)}

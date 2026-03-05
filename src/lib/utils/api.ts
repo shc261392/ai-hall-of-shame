@@ -15,13 +15,12 @@ class ApiClient {
 	}
 
 	async get<T>(path: string, params?: Record<string, string>): Promise<T> {
-		const url = new URL(path, window.location.origin);
+		let url = path;
 		if (params) {
-			for (const [k, v] of Object.entries(params)) {
-				url.searchParams.set(k, v);
-			}
+			const sp = new URLSearchParams(params);
+			url = `${path}?${sp.toString()}`;
 		}
-		const res = await fetch(url.toString(), { headers: this.getHeaders() });
+		const res = await fetch(url, { headers: this.getHeaders() });
 		return this.handle<T>(res, () => this.get<T>(path, params));
 	}
 

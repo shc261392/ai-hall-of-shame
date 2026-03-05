@@ -228,3 +228,122 @@ export async function revokeRefreshToken(
 		.bind(tokenHash)
 		.run();
 }
+
+// ── Personal API Key utilities ──
+
+const API_KEY_PREFIX = "pak_";
+const API_KEY_MAX_PER_USER = 3;
+const API_KEY_EXPIRY_DAYS = 90;
+
+async function hashApiKey(key: string): Promise<string> {
+	const data = new TextEncoder().encode(key);
+	const hash = await crypto.subtle.digest("SHA-256", data);
+	return Array.from(new Uint8Array(hash))
+		.map((b) => b.toString(16).padStart(2, "0"))
+		.join("");
+}
+
+export interface ApiKeyRow {
+	id: string;
+	name: string;
+	key_prefix: string;
+	last_used_at: number | null;
+	expires_at: number;
+	created_at: number;
+}
+
+/**
+ * Create a new API key for a user. Returns the raw key (shown once).
+ * Throws if user already has the maximum number of keys.
+ */
+export async function createApiKey(
+	userId: string,
+	name: string,
+	db: D1Database,
+): Promise<{ key: string; keyId: string; prefix: string; expiresAt: number }> {
+	// Check existing key count
+	const countRow = await db
+		.prepare("SELECT COUNT(*) as cnt FROM api_keys WHERE user_id = ?")
+		.bind(userId)
+		.first<{ cnt: number }>();
+
+	if (countRow && countRow.cnt >= API_KEY_MAX_PER_USER) {
+		throw new Error(`Maximum ${API_KEY_MAX_PER_USER} API keys allowed`);
+	}
+
+	const rawKey = API_KEY_PREFIX + nanoid(48);
+	const prefix = rawKey.slice(0, 12) + "...";
+	const keyHash = await hashApiKey(rawKey);
+	const keyId = nanoid();
+	const expiresAt =
+		Math.floor(Date.now() / 1000) + API_KEY_EXPIRY_DAYS * 24 * 60 * 60;
+
+	await db
+		.prepare(
+			"INSERT INTO api_keys (id, user_id, name, key_prefix, key_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+		)
+		.bind(keyId, userId, name, prefix, keyHash, expiresAt)
+		.run();
+
+	return { key: rawKey, keyId, prefix, expiresAt };
+}
+
+/** List all API keys for a user (never returns the actual key). */
+export async function listApiKeys(
+	userId: string,
+	db: D1Database,
+): Promise<ApiKeyRow[]> {
+	const { results } = await db
+		.prepare(
+			"SELECT id, name, key_prefix, last_used_at, expires_at, created_at FROM api_keys WHERE user_id = ? ORDER BY created_at DESC",
+		)
+		.bind(userId)
+		.all<ApiKeyRow>();
+	return results;
+}
+
+/** Delete a specific API key (must belong to user). */
+export async function deleteApiKey(
+	keyId: string,
+	userId: string,
+	db: D1Database,
+): Promise<boolean> {
+	const result = await db
+		.prepare("DELETE FROM api_keys WHERE id = ? AND user_id = ?")
+		.bind(keyId, userId)
+		.run();
+	return (result.meta?.changes ?? 0) > 0;
+}
+
+/**
+ * Verify an API key and return the user it belongs to.
+ * Updates last_used_at on success.
+ */
+export async function verifyApiKey(
+	key: string,
+	db: D1Database,
+): Promise<{ sub: string; username: string } | null> {
+	if (!key.startsWith(API_KEY_PREFIX)) return null;
+
+	const keyHash = await hashApiKey(key);
+	const row = await db
+		.prepare(
+			`SELECT ak.user_id, ak.expires_at, u.username
+			 FROM api_keys ak JOIN users u ON ak.user_id = u.id
+			 WHERE ak.key_hash = ? AND ak.expires_at > unixepoch()`,
+		)
+		.bind(keyHash)
+		.first<{ user_id: string; expires_at: number; username: string }>();
+
+	if (!row) return null;
+
+	// Update last_used_at (fire-and-forget)
+	db.prepare(
+		"UPDATE api_keys SET last_used_at = unixepoch() WHERE key_hash = ?",
+	)
+		.bind(keyHash)
+		.run()
+		.catch(() => {});
+
+	return { sub: row.user_id, username: row.username };
+}

@@ -8,9 +8,12 @@
 
 	let { code, onclose }: Props = $props();
 	let confirmed = $state(false);
+	let copied = $state(false);
 
 	async function copyCode() {
 		await navigator.clipboard.writeText(code);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
 	}
 
 	function initFocusTrap(node: HTMLElement) {
@@ -39,7 +42,7 @@
 		</div>
 
 		<div class="flex items-center gap-2 my-4">
-			<div class="flex-1 rounded-lg bg-shame-950 border border-shame-700 p-4">
+			<div class="flex-1 rounded-lg bg-shame-950 border {copied ? 'border-neon-500' : 'border-shame-700'} p-4 transition-colors">
 				<code class="block text-center text-sm font-mono text-neon-400 break-all select-all">
 					{code}
 				</code>
@@ -47,11 +50,14 @@
 			<button
 				onclick={copyCode}
 				title="Copy backup code"
-				class="rounded-lg p-3 text-lg text-shame-300 hover:text-shame-100 hover:bg-shame-800 transition-colors"
+				class="rounded-lg p-3 text-lg transition-colors {copied ? 'text-neon-400 bg-neon-500/10 ring-2 ring-neon-500/50' : 'text-shame-300 hover:text-shame-100 hover:bg-shame-800'}"
 			>
-				📋
+				{copied ? '✅' : '📋'}
 			</button>
 		</div>
+		{#if copied}
+			<p class="text-center text-xs text-neon-400 -mt-2 mb-2 animate-fade-in">Copied!</p>
+		{/if}
 
 		<label class="flex items-start gap-2 mb-4 cursor-pointer">
 			<input

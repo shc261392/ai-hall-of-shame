@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { auth, updateDisplayName, logout } from "$lib/stores/auth";
 	import { api } from "$lib/utils/api";
+	import ApiKeySection from "./ApiKeySection.svelte";
 
 	interface Props {
 		onclose: () => void;
@@ -147,6 +148,11 @@
 			{#if success}
 				<p class="mt-2 text-sm text-neon-400">✓ Display name updated!</p>
 			{/if}
+		</div>
+
+		<!-- API Keys for Agents -->
+		<div class="mb-6 pt-4 border-t border-shame-700/50">
+			<ApiKeySection />
 		</div>
 
 		<!-- Actions -->

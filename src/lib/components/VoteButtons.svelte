@@ -78,7 +78,8 @@
 	$effect(() => {
 		if (prevScore !== undefined && score !== prevScore) {
 			bumping = true;
-			setTimeout(() => (bumping = false), 300);
+			const timer = setTimeout(() => (bumping = false), 300);
+			return () => clearTimeout(timer);
 		}
 		prevScore = score;
 	});

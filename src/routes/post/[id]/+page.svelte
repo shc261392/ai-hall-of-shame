@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/utils/api';
 	import { renderMarkdown } from '$lib/utils/markdown';
@@ -14,20 +15,36 @@
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import MoreActions from '$lib/components/MoreActions.svelte';
 	import type { Post } from '$lib/types';
+	import type { PostPageData } from './+page.server';
 
-	let post = $state<Post | null>(null);
-	let loading = $state(true);
+	let { data }: { data: PostPageData } = $props();
+
+	let post = $state<Post | null>(data.post ?? null);
+	let loading = $state(!data.post);
 	let error = $state('');
 	let deleting = $state(false);
 
 	const postId = $derived($page.params.id);
 	const displayName = $derived(post?.displayName || post?.username || 'unknown');
-	const renderedBody = $derived(post?.body ? renderMarkdown(post.body) : '');
+	// Track body separately to avoid re-parsing markdown on vote/reaction live events
+	let cachedBody = $state('');
+	let cachedHtml = $state('');
+	const renderedBody = $derived.by(() => {
+		const body = post?.body ?? '';
+		if (body !== cachedBody) {
+			cachedBody = body;
+			cachedHtml = body ? renderMarkdown(body) : '';
+		}
+		return cachedHtml;
+	});
 	const isOwner = $derived(post && $auth.userId === post.userId);
 
 	// Real-time connection for this post
 	let live: LiveConnection | null = null;
 	let unsub: (() => void) | null = null;
+
+	// Track if initial SSR data was used (to skip first client fetch)
+	let initialPostId = data.post ? postId : '';
 
 	$effect(() => {
 		const id = postId;
@@ -37,7 +54,12 @@
 				unsub?.();
 				live?.close();
 			});
-			loadPost(id);
+			// Skip fetch if SSR provided the initial data
+			if (browser && id === initialPostId) {
+				initialPostId = '';
+			} else {
+				loadPost(id);
+			}
 			// Set up live connection for this post
 			const conn = new LiveConnection(`post:${id}`);
 			const off = conn.on((evt) => {
@@ -102,6 +124,19 @@
 <svelte:head>
 	{#if post}
 		<title>{post.title} — AI Hall of Shame</title>
+		<meta name="description" content={data.ogDescription || 'An AI fail story on AI Hall of Shame'} />
+		<!-- Open Graph -->
+		<meta property="og:type" content="article" />
+		<meta property="og:title" content={post.title} />
+		<meta property="og:description" content={data.ogDescription || 'An AI fail story on AI Hall of Shame'} />
+		<meta property="og:site_name" content="AI Hall of Shame" />
+		<meta property="og:url" content={`https://hallofshame.cc/post/${post.id}`} />
+		<!-- Twitter Card -->
+		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:title" content={post.title} />
+		<meta name="twitter:description" content={data.ogDescription || 'An AI fail story on AI Hall of Shame'} />
+	{:else}
+		<title>Post not found — AI Hall of Shame</title>
 	{/if}
 </svelte:head>
 
