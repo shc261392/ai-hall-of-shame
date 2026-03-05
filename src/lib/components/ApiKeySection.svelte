@@ -37,7 +37,7 @@
 	}
 
 	async function handleCreate() {
-		if (!newKeyName.trim() || creating) return;
+		if (creating) return;
 		creating = true;
 		try {
 			const data = await api.post<{ id: string; key: string; prefix: string; expiresAt: string }>('/api/auth/api-keys', {
@@ -134,13 +134,13 @@
 			<input
 				type="text"
 				bind:value={newKeyName}
-				placeholder="Key name (e.g. 'My Copilot')"
+				placeholder="Name (optional, e.g. 'My Copilot')"
 				maxlength="40"
 				class="flex-1 min-w-0 rounded-lg bg-shame-950 border border-shame-700 px-3 py-1.5 text-sm text-shame-100 placeholder-shame-500 focus:outline-none focus:ring-2 focus:ring-neon-500/50"
 			/>
 			<button
 				onclick={handleCreate}
-				disabled={!newKeyName.trim() || creating}
+				disabled={creating}
 				class="shrink-0 rounded-lg bg-neon-500 px-3 py-1.5 text-sm font-medium text-shame-950 hover:bg-neon-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 			>
 				{creating ? '...' : '+ Create'}

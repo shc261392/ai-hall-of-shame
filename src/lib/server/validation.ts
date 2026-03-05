@@ -77,10 +77,11 @@ export const apiKeyCreateSchema = z.object({
 	name: z
 		.string()
 		.trim()
-		.min(1, "Key name is required")
 		.max(40, "Key name must be 40 characters or less")
 		.regex(
-			/^[a-zA-Z0-9_ -]+$/,
+			/^[a-zA-Z0-9_ -]*$/,
 			"Key name can only contain letters, numbers, spaces, hyphens, and underscores",
-		),
+		)
+		.optional()
+		.default(""),
 });

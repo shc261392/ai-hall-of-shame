@@ -70,8 +70,15 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		return jsonError(400, "validation_error", parsed.error.issues[0].message);
 	}
 
+	// Auto-generate name if not provided
+	let keyName = parsed.data.name;
+	if (!keyName) {
+		const existing = await listApiKeys(user.sub, db);
+		keyName = `ApiKey${existing.length + 1}`;
+	}
+
 	try {
-		const result = await createApiKey(user.sub, parsed.data.name, db);
+		const result = await createApiKey(user.sub, keyName, db);
 		return json(
 			{
 				id: result.keyId,
