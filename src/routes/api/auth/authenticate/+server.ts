@@ -101,7 +101,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		publicKeyBytes = new Uint8Array(credential.public_key as number[]);
 	}
 
-	let verification;
+	let verification: Awaited<ReturnType<typeof verifyAuthenticationResponse>>;
 	try {
 		verification = await verifyAuthenticationResponse({
 			response: body.assertion as Parameters<

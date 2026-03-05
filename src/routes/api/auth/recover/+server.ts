@@ -90,7 +90,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	}
 
 	// Verify new passkey registration
-	let verification;
+	let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
 	try {
 		const expectedOrigin =
 			platform!.env.WEBAUTHN_ORIGIN ??

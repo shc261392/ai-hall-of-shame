@@ -75,7 +75,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		);
 	}
 
-	let verification;
+	let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
 	try {
 		verification = await verifyRegistrationResponse({
 			response: body.attestation as Parameters<

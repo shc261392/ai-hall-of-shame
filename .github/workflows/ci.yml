@@ -54,8 +54,6 @@ jobs:
       - name: Create local env
         run: |
           cat > .env <<'EOF'
-          CLOUDFLARE_API_TOKEN=dummy
-          CLOUDFLARE_ACCOUNT_ID=dummy
           JWT_SECRET=ci-test-secret-that-is-long-enough-for-hs256
           WEBAUTHN_RP_ID=localhost
           WEBAUTHN_RP_NAME=AHOS-CI
