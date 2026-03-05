@@ -1,27 +1,35 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
+	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/utils/api';
 	import { renderMarkdown } from '$lib/utils/markdown';
 	import { addToast } from '$lib/stores/toast';
+	import { auth } from '$lib/stores/auth';
+	import { timeAgo } from '$lib/utils/time';
 	import { LiveConnection } from '$lib/utils/live';
+	import VoteButtons from '$lib/components/VoteButtons.svelte';
+	import ReactionBar from '$lib/components/ReactionBar.svelte';
+	import CommentSection from '$lib/components/CommentSection.svelte';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import MoreActions from '$lib/components/MoreActions.svelte';
 	import type { Post } from '$lib/types';
 	import type { PostPageData } from './+page.server';
 
 	let { data }: { data: PostPageData } = $props();
 
 	let post = $state<Post | null>(data.post ?? null);
-	let _loading = $state(!data.post);
-	let _error = $state('');
+	let loading = $state(!data.post);
+	let error = $state('');
 	let deleting = $state(false);
 
 	const postId = $derived($page.params.id);
-	const _displayName = $derived(post?.displayName || post?.username || 'unknown');
+	const displayName = $derived(post?.displayName || post?.username || 'unknown');
 	// Track body separately to avoid re-parsing markdown on vote/reaction live events
 	let cachedBody = $state('');
 	let cachedHtml = $state('');
-	const _renderedBody = $derived.by(() => {
+	const renderedBody = $derived.by(() => {
 		const body = post?.body ?? '';
 		if (body !== cachedBody) {
 			cachedBody = body;
@@ -29,7 +37,7 @@
 		}
 		return cachedHtml;
 	});
-	const _isOwner = $derived(post && $auth.userId === post.userId);
+	const isOwner = $derived(post && $auth.userId === post.userId);
 
 	// Real-time connection for this post
 	let live: LiveConnection | null = null;
@@ -85,19 +93,19 @@
 	});
 
 	async function loadPost(id: string) {
-		_loading = true;
-		_error = '';
+		loading = true;
+		error = '';
 		try {
 			post = await api.get<Post>(`/api/posts/${id}`);
 		} catch (e: any) {
-			_error = e.message || 'Post not found';
+			error = e.message || 'Post not found';
 			addToast('Failed to load post', 'error');
 		} finally {
-			_loading = false;
+			loading = false;
 		}
 	}
 
-	async function _deletePost() {
+	async function deletePost() {
 		if (!post || deleting) return;
 		if (!confirm('Delete this post? This cannot be undone.')) return;
 		deleting = true;

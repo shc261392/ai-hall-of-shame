@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { Post } from '$lib/types';
+	import VoteButtons from './VoteButtons.svelte';
+	import ReactionBar from './ReactionBar.svelte';
+	import { timeAgo } from '$lib/utils/time';
 	import { stripMarkdown } from '$lib/utils/strip-markdown';
 	import { goto } from '$app/navigation';
 
@@ -9,10 +12,10 @@
 
 	let { post }: Props = $props();
 
-	const _displayName = $derived(post.displayName || post.username);
-	const _bodyPreview = $derived(stripMarkdown(post.body).substring(0, 150));
+	const displayName = $derived(post.displayName || post.username);
+	const bodyPreview = $derived(stripMarkdown(post.body).substring(0, 150));
 
-	function _navigateToPost(e: MouseEvent) {
+	function navigateToPost(e: MouseEvent) {
 		// Don't navigate if user clicked an interactive child (buttons, reactions)
 		const target = e.target as HTMLElement;
 		if (target.closest('button')) return;

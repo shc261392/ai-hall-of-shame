@@ -18,7 +18,9 @@ export class LiveRoom implements DurableObject {
 	private static readonly MAX_SUBSCRIBERS = 1000;
 	private static readonly KEEPALIVE_MS = 30_000;
 
-	constructor(_state: DurableObjectState,_env: unknown,
+	constructor(
+		private state: DurableObjectState,
+		private env: unknown,
 	) {}
 
 	async fetch(request: Request): Promise<Response> {

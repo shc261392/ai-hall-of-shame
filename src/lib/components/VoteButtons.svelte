@@ -1,5 +1,5 @@
 <script lang="ts">
-
+	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 
@@ -26,7 +26,7 @@
 		}
 	});
 
-	async function _vote(value: 1 | -1) {
+	async function vote(value: 1 | -1) {
 		if (!$auth.token) {
 			addToast('Sign in to vote', 'info');
 			return;

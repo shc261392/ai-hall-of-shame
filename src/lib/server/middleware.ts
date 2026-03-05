@@ -30,7 +30,7 @@ export async function resolveAuth(
 
 	// Fall back to API key (same Authorization: Bearer header)
 	const token = getAuthToken(request);
-	if (token?.startsWith("pak_")) {
+	if (token && token.startsWith("pak_")) {
 		try {
 			return await verifyApiKey(token, db);
 		} catch {
@@ -60,7 +60,7 @@ export async function guardPost(
 	tier: RateLimitTier = "heavy",
 ) {
 	const { request, platform } = event;
-	const db = platform?.env.DB;
+	const db = platform!.env.DB;
 	const ip = getClientIp(request);
 
 	// Reject oversized bodies before parsing
@@ -86,7 +86,7 @@ export async function guardPost(
 	}
 
 	// Auth required for POST
-	const user = await resolveAuth(request, platform?.env.JWT_SECRET, db);
+	const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
 	if (!user) {
 		return {
 			error: jsonError(
@@ -151,7 +151,7 @@ export async function guardPost(
 
 	// Opportunistic cleanup (roughly 1 in 20 requests)
 	if (Math.random() < 0.05) {
-		event.platform?.context.waitUntil(cleanupExpiredData(db));
+		event.platform!.context.waitUntil(cleanupExpiredData(db));
 	}
 
 	return { user, ip };
@@ -160,7 +160,7 @@ export async function guardPost(
 /** Lightweight rate limit check for GET endpoints. */
 export async function guardGet(event: RequestEvent) {
 	const { request, platform } = event;
-	const db = platform?.env.DB;
+	const db = platform!.env.DB;
 	const ip = getClientIp(request);
 
 	if (ip === "unknown") {
@@ -200,7 +200,7 @@ export async function guardGet(event: RequestEvent) {
 	}
 
 	// Optional auth (for user vote status) — supports JWT and API keys
-	const user = await resolveAuth(request, platform?.env.JWT_SECRET, db);
+	const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
 
 	return { user, ip };
 }

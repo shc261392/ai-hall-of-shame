@@ -45,7 +45,7 @@ export const GET: RequestHandler = async (event) => {
 
 	const { sort, page, limit } = params.data;
 	const offset = (page - 1) * limit;
-	const db = event.platform?.env.DB;
+	const db = event.platform!.env.DB;
 
 	const query = SORT_QUERIES[sort];
 	const { results } = await db
@@ -57,7 +57,7 @@ export const GET: RequestHandler = async (event) => {
 	const posts = results.slice(0, limit);
 
 	const postIds = posts.map((p: PostRow) => p.id);
-	const userVotes: Record<string, number> = {};
+	let userVotes: Record<string, number> = {};
 	const reactionsByPost: Record<string, Record<string, number>> = {};
 	const userReactionsByPost: Record<string, Set<string>> = {};
 
@@ -79,12 +79,12 @@ export const GET: RequestHandler = async (event) => {
 					.prepare(
 						`SELECT target_id, value FROM votes WHERE user_id = ? AND target_type = 'post' AND target_id IN (${placeholders})`,
 					)
-					.bind(guard.user?.sub, ...postIds),
+					.bind(guard.user!.sub, ...postIds),
 				db
 					.prepare(
 						`SELECT post_id, emoji FROM reactions WHERE post_id IN (${placeholders}) AND user_id = ?`,
 					)
-					.bind(...postIds, guard.user?.sub),
+					.bind(...postIds, guard.user!.sub),
 			);
 		}
 
@@ -165,18 +165,18 @@ export const POST: RequestHandler = async (event) => {
 		return jsonError(400, "validation_error", parsed.error.issues[0].message);
 	}
 
-	const db = event.platform?.env.DB;
+	const db = event.platform!.env.DB;
 	const postId = nanoid();
 
 	await db
 		.prepare("INSERT INTO posts (id, user_id, title, body) VALUES (?, ?, ?, ?)")
-		.bind(postId, guard.user?.sub, parsed.data.title, parsed.data.body)
+		.bind(postId, guard.user!.sub, parsed.data.title, parsed.data.body)
 		.run();
 
 	broadcast(event.platform, "feed", "new_post", {
 		id: postId,
 		title: parsed.data.title,
-		username: guard.user?.username,
+		username: guard.user!.username,
 		createdAt: Math.floor(Date.now() / 1000),
 	});
 

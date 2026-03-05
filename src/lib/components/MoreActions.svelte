@@ -1,5 +1,5 @@
 <script lang="ts">
-
+	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 
@@ -14,51 +14,51 @@
 
 	let { targetType, targetId, targetTitle, showDelete = false, deleting = false, ondelete }: Props = $props();
 
-	let _open = $state(false);
-	let _reporting = $state(false);
-	let _reported = $state(false);
+	let open = $state(false);
+	let reporting = $state(false);
+	let reported = $state(false);
 
 	const GITHUB_REPO = 'shc261392/ai-hall-of-shame';
 
-	function _buildGitHubIssueUrl() {
+	function buildGitHubIssueUrl() {
 		const title = `[Abuse Report] ${targetType}: ${targetTitle || targetId}`;
 		const body = `**Content Type:** ${targetType}\n**Content ID:** ${targetId}\n**Reported by:** Community user\n\n**Reason:**\n_Please describe why this content is abusive._`;
 		const params = new URLSearchParams({ title, body, labels: 'abuse-report' });
 		return `https://github.com/${GITHUB_REPO}/issues/new?${params}`;
 	}
 
-	async function _handleFlag() {
+	async function handleFlag() {
 		if (!$auth.token) {
 			addToast('Sign in to flag content', 'error');
 			return;
 		}
-		_reporting = true;
+		reporting = true;
 		try {
 			await api.post('/api/reports', { targetType, targetId, reason: '' });
-			_reported = true;
+			reported = true;
 			addToast('Flagged. Thank you for keeping A-HOS clean!', 'success');
 		} catch (e: any) {
 			if (e.error === 'already_reported') {
-				_reported = true;
+				reported = true;
 				addToast('You already flagged this', 'info');
 			} else {
 				addToast(e.message || 'Failed to flag', 'error');
 			}
 		} finally {
-			_reporting = false;
-			_open = false;
+			reporting = false;
+			open = false;
 		}
 	}
 
-	function _handleDelete() {
-		_open = false;
+	function handleDelete() {
+		open = false;
 		ondelete?.();
 	}
 
-	function _closeOnClickOutside(e: MouseEvent) {
+	function closeOnClickOutside(e: MouseEvent) {
 		const target = e.target as HTMLElement;
 		if (!target.closest('.more-actions-menu')) {
-			_open = false;
+			open = false;
 		}
 	}
 </script>

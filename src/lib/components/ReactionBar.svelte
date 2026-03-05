@@ -1,5 +1,5 @@
 <script lang="ts">
-
+	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 	import { untrack } from 'svelte';
@@ -22,10 +22,10 @@
 		}
 	});
 
-	const _allDefs = REACTION_EMOJIS.map((emoji) => ({ emoji, label: REACTION_LABELS[emoji] }));
+	const allDefs = REACTION_EMOJIS.map((emoji) => ({ emoji, label: REACTION_LABELS[emoji] }));
 
 	// Only show reactions with count > 0
-	let _visibleReactions = $derived(localReactions.filter((r) => r.count > 0));
+	let visibleReactions = $derived(localReactions.filter((r) => r.count > 0));
 
 	function clickOutside(node: HTMLElement, handler: () => void) {
 		// Only listen while picker is open — added/removed via $effect
@@ -50,7 +50,7 @@
 		}
 	});
 
-	async function _toggle(emoji: ReactionEmoji) {
+	async function toggle(emoji: ReactionEmoji) {
 		if (!$auth.token) {
 			addToast('Sign in to react', 'info');
 			showPicker = false;

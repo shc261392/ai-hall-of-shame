@@ -1,8 +1,12 @@
 <script lang="ts">
-
+	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 	import type { Comment, PaginatedResponse } from '$lib/types';
+	import CommentItem from './CommentItem.svelte';
+	import LoadingSpinner from './LoadingSpinner.svelte';
+	import EmptyState from './EmptyState.svelte';
+	import MarkdownEditor from './MarkdownEditor.svelte';
 
 	interface Props {
 		postId: string;
@@ -76,7 +80,7 @@
 		}
 	}
 
-	async function _submitComment() {
+	async function submitComment() {
 		if (!body.trim() || submitting) return;
 		submitting = true;
 		try {

@@ -15,11 +15,7 @@
     "test:report": "playwright show-report",
     "dev:setup": "wrangler d1 migrations apply ahos-db --local",
     "cf:setup": "bash scripts/cf-setup.sh",
-    "deploy": "pnpm build && npx wrangler deploy",
-    "lint": "biome lint --write --unsafe .",
-    "lint:check": "biome lint .",
-    "format": "biome format --write .",
-    "ci:lint": "biome lint --max-diagnostics=10000 ."
+    "deploy": "pnpm build && npx wrangler deploy"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.2.2",
@@ -31,7 +27,6 @@
     "zod": "^3.24.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.5",
     "@cloudflare/workers-types": "^4.20260305.0",
     "@playwright/test": "^1.58.2",
     "@sveltejs/adapter-cloudflare": "^7.2.8",

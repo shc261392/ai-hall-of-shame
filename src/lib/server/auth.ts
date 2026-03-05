@@ -107,7 +107,7 @@ export function generateBackupCode(): string {
 	for (let i = 0; i < 32; i++) {
 		code += chars[bytes[i] % chars.length];
 	}
-	return code.match(/.{4}/g)?.join("-");
+	return code.match(/.{4}/g)!.join("-");
 }
 
 export function normalizeBackupCode(code: string): string {
@@ -232,7 +232,7 @@ export async function revokeRefreshToken(
 // ── Personal API Key utilities ──
 
 const API_KEY_PREFIX = "pak_";
-const _API_KEY_LENGTH = 52; // "pak_" (4) + nanoid(48)
+const API_KEY_LENGTH = 52; // "pak_" (4) + nanoid(48)
 const API_KEY_PATTERN = /^pak_[A-Za-z0-9_-]{48}$/;
 const API_KEY_MAX_PER_USER = 3;
 const API_KEY_EXPIRY_DAYS = 90;
@@ -274,7 +274,7 @@ export async function createApiKey(
 	}
 
 	const rawKey = API_KEY_PREFIX + nanoid(48);
-	const prefix = `${rawKey.slice(0, 12)}...`;
+	const prefix = rawKey.slice(0, 12) + "...";
 	const keyHash = await hashApiKey(rawKey);
 	const keyId = nanoid();
 	const expiresAt =

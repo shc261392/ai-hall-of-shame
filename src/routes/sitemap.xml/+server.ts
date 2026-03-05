@@ -1,7 +1,7 @@
 import type { RequestHandler } from "@sveltejs/kit";
 
 export const GET: RequestHandler = async ({ platform }) => {
-	const db = platform?.env.DB;
+	const db = platform!.env.DB;
 	const { results: posts } = await db
 		.prepare(
 			"SELECT id, created_at FROM posts WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 1000",

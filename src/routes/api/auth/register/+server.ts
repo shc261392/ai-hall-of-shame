@@ -7,18 +7,19 @@ import {
 	createTokenPair,
 	hashBackupCode,
 	generateBackupCode,
+	normalizeBackupCode,
 } from "$lib/server/auth";
 import { generateUniqueUsername } from "$lib/server/username";
 import { getClientIp, jsonError } from "$lib/server/middleware";
 import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
 export const POST: RequestHandler = async ({ request, platform }) => {
-	const db = platform?.env.DB;
+	const db = platform!.env.DB;
 	const ip = getClientIp(request);
-	const rpId = platform?.env.WEBAUTHN_RP_ID;
-	const _rpName = platform?.env.WEBAUTHN_RP_NAME;
+	const rpId = platform!.env.WEBAUTHN_RP_ID;
+	const rpName = platform!.env.WEBAUTHN_RP_NAME;
 	const expectedOrigin =
-		platform?.env.WEBAUTHN_ORIGIN ??
+		platform!.env.WEBAUTHN_ORIGIN ??
 		(dev ? "http://localhost:5173" : `https://${rpId}`);
 
 	// Rate limit registration by IP
@@ -74,7 +75,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		);
 	}
 
-	let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
+	let verification;
 	try {
 		verification = await verifyRegistrationResponse({
 			response: body.attestation as Parameters<
@@ -133,7 +134,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const pair = await createTokenPair(
 		userId,
 		username,
-		platform?.env.JWT_SECRET,
+		platform!.env.JWT_SECRET,
 		db,
 		remember,
 	);

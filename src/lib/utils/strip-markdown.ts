@@ -10,8 +10,8 @@ export function stripMarkdown(markdown: string): string {
 		.replace(/(\*|_)(.*?)\1/g, "$2") // italic
 		.replace(/~~(.*?)~~/g, "$1") // strikethrough
 		.replace(/`{1,3}([^`]+)`{1,3}/g, "$1") // code
-		.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
-		.replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1") // images
+		.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1") // links
+		.replace(/!\[([^\]]*)\]\([^\)]+\)/g, "$1") // images
 		.replace(/^>\s/gm, "") // blockquotes
 		.replace(/^[-*+]\s/gm, "") // lists
 		.replace(/^\d+\.\s/gm, "") // ordered lists

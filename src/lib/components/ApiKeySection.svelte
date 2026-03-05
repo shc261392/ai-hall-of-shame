@@ -12,31 +12,31 @@
 	}
 
 	let keys = $state<ApiKey[]>([]);
-	let _loading = $state(true);
+	let loading = $state(true);
 	let creating = $state(false);
 	let newKeyName = $state('');
 	let revealedKey = $state('');
 	let copied = $state(false);
 
-	const _canCreate = $derived(keys.length < 3);
+	const canCreate = $derived(keys.length < 3);
 
 	$effect(() => {
 		loadKeys();
 	});
 
 	async function loadKeys() {
-		_loading = true;
+		loading = true;
 		try {
 			const data = await api.get<{ keys: ApiKey[] }>('/api/auth/api-keys');
 			keys = data.keys;
 		} catch {
 			addToast('Failed to load API keys', 'error');
 		} finally {
-			_loading = false;
+			loading = false;
 		}
 	}
 
-	async function _handleCreate() {
+	async function handleCreate() {
 		if (!newKeyName.trim() || creating) return;
 		creating = true;
 		try {
@@ -53,7 +53,7 @@
 		}
 	}
 
-	async function _handleRevoke(keyId: string) {
+	async function handleRevoke(keyId: string) {
 		if (!confirm('Revoke this API key? Any agent using it will lose access immediately.')) return;
 		try {
 			await api.delete(`/api/auth/api-keys?id=${keyId}`);
@@ -64,18 +64,18 @@
 		}
 	}
 
-	async function _copyKey() {
+	async function copyKey() {
 		await navigator.clipboard.writeText(revealedKey);
 		copied = true;
 		setTimeout(() => (copied = false), 2000);
 	}
 
-	function _dismissKey() {
+	function dismissKey() {
 		revealedKey = '';
 		copied = false;
 	}
 
-	function _formatDate(iso: string) {
+	function formatDate(iso: string) {
 		return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 	}
 </script>

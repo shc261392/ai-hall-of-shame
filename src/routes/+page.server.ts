@@ -14,7 +14,7 @@ export interface HomePageData {
 }
 
 export const load: ServerLoad = async ({ platform, url }) => {
-	const db = platform?.env.DB;
+	const db = platform!.env.DB;
 	const sort = url.searchParams.get("sort") || "trending";
 	const limit = 20;
 
@@ -47,7 +47,7 @@ export const load: ServerLoad = async ({ platform, url }) => {
 
 		// Get reaction counts for all posts
 		const postIds = posts.map((p) => p.id);
-		const reactionMap = new Map<string, Map<string, number>>();
+		let reactionMap = new Map<string, Map<string, number>>();
 
 		if (postIds.length > 0) {
 			const placeholders = postIds.map(() => "?").join(",");
@@ -60,7 +60,7 @@ export const load: ServerLoad = async ({ platform, url }) => {
 
 			for (const r of reactionRows) {
 				if (!reactionMap.has(r.post_id)) reactionMap.set(r.post_id, new Map());
-				reactionMap.get(r.post_id)?.set(r.emoji, r.count);
+				reactionMap.get(r.post_id)!.set(r.emoji, r.count);
 			}
 		}
 

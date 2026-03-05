@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import HeroBanner from '$lib/components/HeroBanner.svelte';
+	import FilterTabs from '$lib/components/FilterTabs.svelte';
+	import PostCard from '$lib/components/PostCard.svelte';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 	import { LiveConnection } from '$lib/utils/live';
+	import { auth } from '$lib/stores/auth';
 	import type { Post, SortOption, PaginatedResponse } from '$lib/types';
 	import type { HomePageData } from './+page.server';
 
@@ -12,12 +18,12 @@
 	let sort = $state<SortOption>((data.sort as SortOption) || 'trending');
 	let posts = $state<Post[]>(data.posts || []);
 	let loading = $state(false);
-	let _showAgentGuide = $state(false);
+	let showAgentGuide = $state(false);
 	let loadingMore = $state(false);
 	let hasMore = $state(data.hasMore || false);
 	let page = $state(1);
 	let sentinel: HTMLDivElement | undefined = $state();
-	let _newPostsBanner = $state(0);
+	let newPostsBanner = $state(0);
 
 	const PAGE_SIZE = 20;
 
@@ -39,7 +45,7 @@
 				}
 			}
 		} else if (evt.event === 'new_post') {
-			_newPostsBanner++;
+			newPostsBanner++;
 		} else if (evt.event === 'new_comment') {
 			const p = posts.find((p) => p.id === evt.data.postId);
 			if (p) {
@@ -83,7 +89,7 @@
 	async function fetchPosts(currentSort: SortOption) {
 		const gen = ++fetchGeneration;
 		loading = true;
-		_newPostsBanner = 0;
+		newPostsBanner = 0;
 		try {
 			const res = await api.get<PaginatedResponse<Post>>('/api/posts', {
 				sort: currentSort,
@@ -121,7 +127,7 @@
 		}
 	}
 
-	function _changeSort(newSort: SortOption) {
+	function changeSort(newSort: SortOption) {
 		sort = newSort;
 	}
 </script>

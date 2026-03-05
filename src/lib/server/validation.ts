@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const _NANOID_PATTERN = /^[A-Za-z0-9_-]{21}$/;
+const NANOID_PATTERN = /^[A-Za-z0-9_-]{21}$/;
 
 export const postCreateSchema = z.object({
 	title: z

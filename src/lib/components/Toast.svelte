@@ -1,5 +1,5 @@
 <script lang="ts">
-
+	import { toasts } from '$lib/stores/toast';
 </script>
 
 {#if $toasts.length > 0}

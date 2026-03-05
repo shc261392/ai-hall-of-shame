@@ -2,6 +2,7 @@
 	import { register, authenticate, recoverWithBackupCode, browserSupportsWebAuthn } from '$lib/utils/passkey';
 	import { addToast } from '$lib/stores/toast';
 	import { trapFocus } from '$lib/utils/focus-trap';
+	import BackupCodeModal from './BackupCodeModal.svelte';
 
 	interface Props {
 		onclose: () => void;
@@ -9,62 +10,62 @@
 
 	let { onclose }: Props = $props();
 
-	let _mode: 'main' | 'recover' = $state('main');
-	let _loading = $state(false);
-	let _error = $state('');
+	let mode: 'main' | 'recover' = $state('main');
+	let loading = $state(false);
+	let error = $state('');
 	let backupCodeInput = $state('');
-	let _newBackupCode = $state<string | null>(null);
-	let _supported = $state(browserSupportsWebAuthn());
+	let newBackupCode = $state<string | null>(null);
+	let supported = $state(browserSupportsWebAuthn());
 	let remember = $state(false);
 
-	async function _handleRegister() {
-		_loading = true;
-		_error = '';
+	async function handleRegister() {
+		loading = true;
+		error = '';
 		try {
 			const { backupCode } = await register(remember);
-			_newBackupCode = backupCode;
+			newBackupCode = backupCode;
 			addToast('Account created! Save your backup code.', 'success');
 		} catch (e: any) {
-			_error = e.message || 'Registration failed';
+			error = e.message || 'Registration failed';
 		} finally {
-			_loading = false;
+			loading = false;
 		}
 	}
 
-	async function _handleAuthenticate() {
-		_loading = true;
-		_error = '';
+	async function handleAuthenticate() {
+		loading = true;
+		error = '';
 		try {
 			await authenticate(remember);
 			addToast('Signed in!', 'success');
 			onclose();
 		} catch (e: any) {
-			_error = e.message || 'Authentication failed';
+			error = e.message || 'Authentication failed';
 		} finally {
-			_loading = false;
+			loading = false;
 		}
 	}
 
-	async function _handleRecover() {
+	async function handleRecover() {
 		if (!backupCodeInput.trim()) return;
-		_loading = true;
-		_error = '';
+		loading = true;
+		error = '';
 		try {
 			const { backupCode } = await recoverWithBackupCode(backupCodeInput.trim(), remember);
-			_newBackupCode = backupCode;
+			newBackupCode = backupCode;
 			addToast('Account recovered! Save your new backup code.', 'success');
 		} catch (e: any) {
-			_error = e.message || 'Recovery failed';
+			error = e.message || 'Recovery failed';
 		} finally {
-			_loading = false;
+			loading = false;
 		}
 	}
 
-	function _handleBackdropClick(e: MouseEvent) {
+	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) onclose();
 	}
 
-	function _initFocusTrap(node: HTMLElement) {
+	function initFocusTrap(node: HTMLElement) {
 		const cleanup = trapFocus(node);
 		return { destroy: cleanup };
 	}
