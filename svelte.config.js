@@ -9,7 +9,9 @@ const config = {
 			platformProxy: {
 				configPath: 'wrangler.toml',
 				experimentalJsonConfig: false,
-				persist: { path: '.wrangler/state/v3' }
+				persist: { path: '.wrangler/state/v3' },
+				// In CI there's no Cloudflare auth; use local-only bindings
+				remoteBindings: !process.env.CI
 			}
 		}),
 		alias: {
