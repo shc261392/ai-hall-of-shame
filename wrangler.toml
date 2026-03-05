@@ -23,6 +23,9 @@ migrations_dir = "migrations"
 name = "LIVE_ROOM"
 class_name = "LiveRoom"
 
+[ai]
+binding = "AI"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["LiveRoom"]

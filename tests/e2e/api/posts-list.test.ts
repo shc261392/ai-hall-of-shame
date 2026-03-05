@@ -38,7 +38,7 @@ test.describe("GET /api/posts", () => {
 			expect(p).toHaveProperty("downvotes");
 			expect(p).toHaveProperty("reactions");
 			expect(Array.isArray(p.reactions)).toBe(true);
-			expect(p.reactions).toHaveLength(5);
+			expect(p.reactions).toHaveLength(6);
 		}
 	});
 

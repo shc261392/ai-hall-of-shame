@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import HeroBanner from '$lib/components/HeroBanner.svelte';
 	import FilterTabs from '$lib/components/FilterTabs.svelte';
 	import PostCard from '$lib/components/PostCard.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import SearchBar from '$lib/components/SearchBar.svelte';
+	import TagCloud from '$lib/components/TagCloud.svelte';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 	import { LiveConnection } from '$lib/utils/live';
@@ -15,15 +17,20 @@
 
 	let { data }: { data: HomePageData } = $props();
 
-	let sort = $state<SortOption>((data.sort as SortOption) || 'trending');
-	let posts = $state<Post[]>(data.posts || []);
+	let sort = $state<SortOption>(untrack(() => (data.sort as SortOption) || 'trending'));
+	let posts = $state<Post[]>(untrack(() => data.posts || []));
 	let loading = $state(false);
 	let showAgentGuide = $state(false);
 	let loadingMore = $state(false);
-	let hasMore = $state(data.hasMore || false);
+	let hasMore = $state(untrack(() => data.hasMore || false));
 	let page = $state(1);
 	let sentinel: HTMLDivElement | undefined = $state();
 	let newPostsBanner = $state(0);
+
+	// Search & tag filter state
+	let searchQuery = $state('');
+	let activeTag = $state('');
+	let tagCloud = $state<{ tag: string; count: number }[]>([]);
 
 	const PAGE_SIZE = 20;
 
@@ -61,7 +68,7 @@
 	});
 
 	let fetchGeneration = 0;
-	let initialSort = data.sort || 'trending';
+	let initialSort = untrack(() => data.sort || 'trending');
 
 	$effect(() => {
 		// Only re-fetch on client when sort changes from user action
@@ -69,6 +76,16 @@
 			fetchPosts(sort);
 		}
 		initialSort = ''; // After first run, always re-fetch on sort change
+	});
+
+	// Load tag cloud on mount
+	onMount(async () => {
+		try {
+			const res = await api.get<{ tags: { tag: string; count: number }[] }>('/api/tags');
+			tagCloud = res.tags;
+		} catch {
+			// Tag cloud is non-critical
+		}
 	});
 
 	// IntersectionObserver for infinite scroll
@@ -91,11 +108,14 @@
 		loading = true;
 		newPostsBanner = 0;
 		try {
-			const res = await api.get<PaginatedResponse<Post>>('/api/posts', {
+			const params: Record<string, string> = {
 				sort: currentSort,
 				page: '1',
 				limit: String(PAGE_SIZE)
-			});
+			};
+			if (searchQuery) params.q = searchQuery;
+			if (activeTag) params.tag = activeTag;
+			const res = await api.get<PaginatedResponse<Post>>('/api/posts', params);
 			if (gen !== fetchGeneration) return; // stale response
 			posts = res.data;
 			hasMore = res.has_more;
@@ -112,11 +132,14 @@
 		loadingMore = true;
 		try {
 			const nextPage = page + 1;
-			const res = await api.get<PaginatedResponse<Post>>('/api/posts', {
+			const params: Record<string, string> = {
 				sort,
 				page: String(nextPage),
 				limit: String(PAGE_SIZE)
-			});
+			};
+			if (searchQuery) params.q = searchQuery;
+			if (activeTag) params.tag = activeTag;
+			const res = await api.get<PaginatedResponse<Post>>('/api/posts', params);
 			posts = [...posts, ...res.data];
 			hasMore = res.has_more;
 			page = nextPage;
@@ -130,9 +153,44 @@
 	function changeSort(newSort: SortOption) {
 		sort = newSort;
 	}
+
+	function handleSearch(query: string) {
+		searchQuery = query;
+		activeTag = '';
+		fetchPosts(sort);
+	}
+
+	function handleTagSelect(tag: string) {
+		activeTag = tag;
+		searchQuery = '';
+		fetchPosts(sort);
+	}
+
+	// Accessible result summary for screen readers
+	const resultSummary = $derived.by(() => {
+		if (loading) return 'Loading posts…';
+		const count = posts.length;
+		const suffix = hasMore ? ' or more' : '';
+		if (searchQuery) return `${count}${suffix} result${count !== 1 ? 's' : ''} for "${searchQuery}"`;
+		if (activeTag) return `${count}${suffix} post${count !== 1 ? 's' : ''} tagged "${activeTag}"`;
+		return `${count}${suffix} post${count !== 1 ? 's' : ''} shown`;
+	});
 </script>
 
 <HeroBanner />
+
+<!-- Screen reader announcement for search/filter results -->
+<div aria-live="polite" class="sr-only">{resultSummary}</div>
+
+<div class="mb-4">
+	<SearchBar value={searchQuery} onsearch={handleSearch} />
+</div>
+
+{#if tagCloud.length > 0}
+	<div class="mb-4">
+		<TagCloud tags={tagCloud} {activeTag} onselect={handleTagSelect} />
+	</div>
+{/if}
 
 <div class="mb-6">
 	<FilterTabs active={sort} onchange={changeSort} />

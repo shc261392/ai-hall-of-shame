@@ -2,10 +2,12 @@ import type { ServerLoad } from "@sveltejs/kit";
 import {
 	REACTION_EMOJIS,
 	REACTION_LABELS,
+	computeIsGolden,
 	type ReactionEmoji,
 	type PostRow,
 	type Post,
 } from "$lib/types";
+import { getEnv } from "$lib/server/middleware";
 
 export interface HomePageData {
 	posts: Post[];
@@ -14,7 +16,7 @@ export interface HomePageData {
 }
 
 export const load: ServerLoad = async ({ platform, url }) => {
-	const db = platform!.env.DB;
+	const db = getEnv(platform).DB;
 	const sort = url.searchParams.get("sort") || "trending";
 	const limit = 20;
 
@@ -45,28 +47,48 @@ export const load: ServerLoad = async ({ platform, url }) => {
 		const hasMore = results.length > limit;
 		const posts = results.slice(0, limit);
 
-		// Get reaction counts for all posts
+		// Get reaction counts and tags for all posts
 		const postIds = posts.map((p) => p.id);
-		let reactionMap = new Map<string, Map<string, number>>();
+		const reactionMap = new Map<string, Map<string, number>>();
+		const tagMap = new Map<string, string[]>();
 
 		if (postIds.length > 0) {
 			const placeholders = postIds.map(() => "?").join(",");
-			const { results: reactionRows } = await db
-				.prepare(
-					`SELECT post_id, emoji, COUNT(*) as count FROM reactions WHERE post_id IN (${placeholders}) GROUP BY post_id, emoji`,
-				)
-				.bind(...postIds)
-				.all<{ post_id: string; emoji: string; count: number }>();
+			const batchResults = await db.batch([
+				db
+					.prepare(
+						`SELECT post_id, emoji, COUNT(*) as count FROM reactions WHERE post_id IN (${placeholders}) GROUP BY post_id, emoji`,
+					)
+					.bind(...postIds),
+				db
+					.prepare(`SELECT post_id, tag FROM post_tags WHERE post_id IN (${placeholders})`)
+					.bind(...postIds),
+			]);
 
-			for (const r of reactionRows) {
+			for (const r of batchResults[0].results as unknown as {
+				post_id: string;
+				emoji: string;
+				count: number;
+			}[]) {
 				if (!reactionMap.has(r.post_id)) reactionMap.set(r.post_id, new Map());
-				reactionMap.get(r.post_id)!.set(r.emoji, r.count);
+				reactionMap.get(r.post_id)?.set(r.emoji, r.count);
+			}
+
+			for (const t of batchResults[1].results as unknown as { post_id: string; tag: string }[]) {
+				if (!tagMap.has(t.post_id)) tagMap.set(t.post_id, []);
+				tagMap.get(t.post_id)?.push(t.tag);
 			}
 		}
 
 		return {
 			posts: posts.map((p) => {
 				const counts = reactionMap.get(p.id) || new Map();
+				const reactions = REACTION_EMOJIS.map((e) => ({
+					emoji: e,
+					label: REACTION_LABELS[e as ReactionEmoji],
+					count: counts.get(e) ?? 0,
+					userReacted: false,
+				}));
 				return {
 					id: p.id,
 					userId: p.user_id,
@@ -79,12 +101,9 @@ export const load: ServerLoad = async ({ platform, url }) => {
 					commentCount: p.comment_count,
 					createdAt: p.created_at,
 					userVote: null,
-					reactions: REACTION_EMOJIS.map((e) => ({
-						emoji: e,
-						label: REACTION_LABELS[e as ReactionEmoji],
-						count: counts.get(e) ?? 0,
-						userReacted: false,
-					})),
+					reactions,
+					tags: tagMap.get(p.id) ?? [],
+					isGolden: computeIsGolden(reactions, p.upvotes, p.downvotes),
 				};
 			}),
 			hasMore,

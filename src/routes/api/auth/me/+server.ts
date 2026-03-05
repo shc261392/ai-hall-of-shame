@@ -1,25 +1,19 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { signToken } from "$lib/server/auth";
-import { getClientIp, jsonError, resolveAuth } from "$lib/server/middleware";
-import {
-	usernameUpdateSchema,
-	displayNameUpdateSchema,
-} from "$lib/server/validation";
+import { getEnv, jsonError, resolveAuth } from "$lib/server/middleware";
+import { usernameUpdateSchema, displayNameUpdateSchema } from "$lib/server/validation";
 import { isReservedUsername } from "$lib/server/username";
-import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
+import { checkRateLimit } from "$lib/server/ratelimit";
 
 export const GET: RequestHandler = async ({ request, platform }) => {
-	const user = await resolveAuth(
-		request,
-		platform!.env.JWT_SECRET,
-		platform!.env.DB,
-	);
+	const env = getEnv(platform);
+	const user = await resolveAuth(request, env.JWT_SECRET, env.DB);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
 
-	const row = await platform!.env.DB.prepare(
+	const row = await env.DB.prepare(
 		"SELECT id, username, display_name, created_at FROM users WHERE id = ?",
 	)
 		.bind(user.sub)
@@ -43,18 +37,14 @@ export const GET: RequestHandler = async ({ request, platform }) => {
 };
 
 export const PATCH: RequestHandler = async ({ request, platform }) => {
-	const user = await resolveAuth(
-		request,
-		platform!.env.JWT_SECRET,
-		platform!.env.DB,
-	);
+	const env = getEnv(platform);
+	const user = await resolveAuth(request, env.JWT_SECRET, env.DB);
 	if (!user) {
 		return jsonError(401, "unauthorized", "Authentication required");
 	}
 
 	// Rate limit profile updates
-	const db = platform!.env.DB;
-	const ip = getClientIp(request);
+	const db = env.DB;
 	const limit = await checkRateLimit(db, user.sub, "light");
 	if (!limit.allowed) {
 		return jsonError(
@@ -94,11 +84,7 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 				.run();
 		} catch (e) {
 			if (e instanceof Error && e.message.includes("UNIQUE constraint")) {
-				return jsonError(
-					409,
-					"display_name_taken",
-					"This display name is already taken",
-				);
+				return jsonError(409, "display_name_taken", "This display name is already taken");
 			}
 			throw e;
 		}
@@ -132,11 +118,7 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 	}
 
 	// Issue new token with updated username
-	const token = await signToken(
-		user.sub,
-		newUsername,
-		platform!.env.JWT_SECRET,
-	);
+	const token = await signToken(user.sub, newUsername, env.JWT_SECRET);
 
 	return json({ token, username: newUsername });
 };

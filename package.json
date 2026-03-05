@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@10.6.2",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "set -a && . ./.env && set +a && vite dev",
     "build": "vite build && node scripts/patch-worker.js",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -38,6 +38,7 @@
     "@sveltejs/kit": "^2.53.4",
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
     "@tailwindcss/vite": "^4.2.1",
+    "@types/node": "^25.3.3",
     "svelte": "^5.53.6",
     "svelte-check": "^4.2.1",
     "tailwindcss": "^4.2.1",

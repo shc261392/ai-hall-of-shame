@@ -1,27 +1,21 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import {
-	rotateRefreshToken,
-	revokeRefreshToken,
-	revokeRefreshTokens,
-} from "$lib/server/auth";
-import { getClientIp, jsonError, resolveAuth } from "$lib/server/middleware";
+import { rotateRefreshToken, revokeRefreshToken, revokeRefreshTokens } from "$lib/server/auth";
+import { getClientIp, getEnv, jsonError, resolveAuth } from "$lib/server/middleware";
 import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
 /** Rotate refresh token → new access + refresh token pair. */
 export const POST: RequestHandler = async ({ request, platform }) => {
-	const db = platform!.env.DB;
+	const env = getEnv(platform);
+	const db = env.DB;
 
 	// Rate limit refresh requests by IP
 	const ip = getClientIp(request);
 	const ban = await checkBan(db, `ip:${ip}`);
 	if (ban.banned) {
-		return jsonError(
-			403,
-			"banned",
-			`IP suspended. Ban expires: ${ban.expiresAt}`,
-			{ expires_at: ban.expiresAt },
-		);
+		return jsonError(403, "banned", `IP suspended. Ban expires: ${ban.expiresAt}`, {
+			expires_at: ban.expiresAt,
+		});
 	}
 	const limit = await checkRateLimit(db, `ip:${ip}`, "heavy");
 	if (!limit.allowed) {
@@ -44,18 +38,10 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		return jsonError(400, "invalid_request", "Missing refreshToken");
 	}
 
-	const result = await rotateRefreshToken(
-		body.refreshToken,
-		platform!.env.JWT_SECRET,
-		db,
-	);
+	const result = await rotateRefreshToken(body.refreshToken, env.JWT_SECRET, db);
 
 	if (!result) {
-		return jsonError(
-			401,
-			"invalid_refresh_token",
-			"Refresh token is invalid or expired",
-		);
+		return jsonError(401, "invalid_refresh_token", "Refresh token is invalid or expired");
 	}
 
 	return json({
@@ -69,7 +55,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 /** Revoke refresh token (logout). */
 export const DELETE: RequestHandler = async ({ request, platform }) => {
-	const db = platform!.env.DB;
+	const env = getEnv(platform);
+	const db = env.DB;
 
 	let body: { refreshToken?: string };
 	try {
@@ -82,7 +69,7 @@ export const DELETE: RequestHandler = async ({ request, platform }) => {
 		await revokeRefreshToken(db, body.refreshToken);
 	} else {
 		// If no specific token, revoke all tokens for the authenticated user
-		const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
+		const user = await resolveAuth(request, env.JWT_SECRET, db);
 		if (user) {
 			await revokeRefreshTokens(db, user.sub);
 		}

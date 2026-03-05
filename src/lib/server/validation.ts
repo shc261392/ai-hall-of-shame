@@ -1,6 +1,16 @@
 import { z } from "zod";
+import { REACTION_EMOJIS } from "$lib/types";
 
-const NANOID_PATTERN = /^[A-Za-z0-9_-]{21}$/;
+const tagSchema = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.min(2, "Tag must be at least 2 characters")
+	.max(24, "Tag must be 24 characters or less")
+	.regex(
+		/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]{2}$/,
+		"Tags must be lowercase alphanumeric with optional hyphens",
+	);
 
 export const postCreateSchema = z.object({
 	title: z
@@ -14,6 +24,11 @@ export const postCreateSchema = z.object({
 		.max(10000, "Body must be 10,000 characters or less")
 		.optional()
 		.default(""),
+	tags: z.array(tagSchema).max(3, "Maximum 3 tags allowed").optional().default([]),
+});
+
+export const tagUpdateSchema = z.object({
+	tags: z.array(tagSchema).max(3, "Maximum 3 tags allowed"),
 });
 
 export const commentCreateSchema = z.object({
@@ -53,7 +68,7 @@ export const voteSchema = z.object({
 
 export const reactionSchema = z.object({
 	postId: z.string().min(1),
-	emoji: z.enum(["😈", "❓", "💀", "🤦", "🔥"]),
+	emoji: z.enum(REACTION_EMOJIS),
 });
 
 export const reportSchema = z.object({
@@ -66,6 +81,14 @@ export const paginationSchema = z.object({
 	sort: z.enum(["trending", "top", "latest"]).default("trending"),
 	page: z.coerce.number().int().min(1).default(1),
 	limit: z.coerce.number().int().min(1).max(50).default(20),
+	q: z.string().trim().max(100).optional(),
+	tag: z
+		.string()
+		.trim()
+		.toLowerCase()
+		.max(24)
+		.regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]{1,2}$/, "Invalid tag format")
+		.optional(),
 });
 
 export const idParamSchema = z.string().min(1);

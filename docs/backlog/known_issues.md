@@ -4,7 +4,7 @@
 > Critical, High, and Blocker issues are fixed immediately.
 > Medium and Low items are tracked here for future work.
 >
-> Last updated after Phase 2H final review session.
+> Last updated after Phase 3 tags/search/golden/AI review session.
 
 ---
 
@@ -88,6 +88,18 @@ No image optimization pipeline. If user-generated images are added later, integr
 ### LOW — Bundle Size Monitoring
 **Source**: Performance Expert
 No automated bundle size tracking. Consider adding a CI check to catch unexpected size regressions.
+
+### LOW — LIKE Search Full-Table Scan
+**Source**: Performance Expert, Database Expert (Phase 3)
+`GET /api/posts?q=...` uses `LIKE %query%` on `title` and `body`, which can't use any index. Combined with the correlated `EXISTS` subquery on `post_tags`, every search evaluates the full text of every non-deleted post. Fine at current scale (< 10k posts), but will degrade. Consider D1's FTS5 support or client-side filtering from a cached post list.
+
+### LOW — Trending Sort Prevents Index Use
+**Source**: Performance Expert (Phase 3)
+The `trending` ORDER BY uses a computed expression that SQLite can't index. Combined with OFFSET pagination, this scans all qualifying rows. Consider a materialized `trending_score` column or cursor-based pagination for future scale.
+
+### LOW — Tag Cloud Client-Side Fetch (CLS)
+**Source**: Performance Expert (Phase 3)
+Tag cloud is fetched client-side via `onMount`, causing a layout shift as tags pop in after initial render. Moving the tag cloud fetch into `+page.server.ts` SSR load would eliminate the extra roundtrip and CLS.
 
 ---
 

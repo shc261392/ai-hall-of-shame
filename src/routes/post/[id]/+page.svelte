@@ -9,18 +9,21 @@
 	import { auth } from '$lib/stores/auth';
 	import { timeAgo } from '$lib/utils/time';
 	import { LiveConnection } from '$lib/utils/live';
+	import { computeIsGolden } from '$lib/types';
 	import VoteButtons from '$lib/components/VoteButtons.svelte';
 	import ReactionBar from '$lib/components/ReactionBar.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import MoreActions from '$lib/components/MoreActions.svelte';
+	import TagInput from '$lib/components/TagInput.svelte';
+	import { tagStyle } from '$lib/utils/tag-colors';
 	import type { Post } from '$lib/types';
 	import type { PostPageData } from './+page.server';
 
 	let { data }: { data: PostPageData } = $props();
 
-	let post = $state<Post | null>(data.post ?? null);
-	let loading = $state(!data.post);
+	let post = $state<Post | null>(untrack(() => data.post ?? null));
+	let loading = $state(untrack(() => !data.post));
 	let error = $state('');
 	let deleting = $state(false);
 
@@ -45,7 +48,7 @@
 	let unsub: (() => void) | null = null;
 
 	// Track if initial SSR data was used (to skip first client fetch)
-	let initialPostId = data.post ? postId : '';
+	let initialPostId = untrack(() => data.post ? postId : '');
 
 	$effect(() => {
 		const id = postId;
@@ -98,8 +101,8 @@
 		error = '';
 		try {
 			post = await api.get<Post>(`/api/posts/${id}`);
-		} catch (e: any) {
-			error = e.message || 'Post not found';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Post not found';
 			addToast('Failed to load post', 'error');
 		} finally {
 			loading = false;
@@ -114,10 +117,28 @@
 			await api.delete(`/api/posts/${post.id}`);
 			addToast('Post deleted', 'success');
 			goto('/');
-		} catch (e: any) {
-			addToast(e.message || 'Failed to delete post', 'error');
+		} catch (e: unknown) {
+			addToast(e instanceof Error ? e.message : 'Failed to delete post', 'error');
 		} finally {
 			deleting = false;
+		}
+	}
+
+	let editingTags = $state(false);
+	let savingTags = $state(false);
+
+	async function handleTagUpdate(newTags: string[]) {
+		if (!post || savingTags) return;
+		savingTags = true;
+		try {
+			await api.patch(`/api/posts/${post.id}`, { tags: newTags });
+			post = { ...post, tags: newTags, isGolden: computeIsGolden(post.reactions, post.upvotes, post.downvotes) };
+			addToast('Tags updated', 'success');
+			editingTags = false;
+		} catch (e: unknown) {
+			addToast(e instanceof Error ? e.message : 'Failed to update tags', 'error');
+		} finally {
+			savingTags = false;
 		}
 	}
 </script>
@@ -150,7 +171,15 @@
 		<a href="/" class="mt-4 inline-block text-sm text-neon-400 hover:text-neon-500">← Back to feed</a>
 	</div>
 {:else}
-	<article class="rounded-xl border border-shame-700 bg-shame-900/50 p-5">
+	<article class="rounded-xl border p-5
+		{post.isGolden
+			? 'border-golden bg-shame-900/50 golden-card'
+			: 'border-shame-700 bg-shame-900/50'}">
+		{#if post.isGolden}
+			<div class="mb-3 inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 text-sm font-bold text-amber-400">
+				🏆 Golden Post
+			</div>
+		{/if}
 		<div class="flex gap-4">
 			<div class="flex-shrink-0">
 				<VoteButtons
@@ -177,6 +206,34 @@
 				{@html renderedBody}
 			</div>
 		{/if}
+		<!-- Tags display/edit -->
+		<div class="mt-4">
+			{#if editingTags && isOwner}
+				<TagInput tags={post.tags ?? []} onchange={handleTagUpdate} />
+				<button
+					onclick={() => (editingTags = false)}
+					class="mt-1 text-xs text-shame-300 hover:text-shame-100 transition-colors"
+				>Cancel</button>
+			{:else}
+				<div class="flex items-center gap-2 flex-wrap">
+					{#if post.tags && post.tags.length > 0}
+						{#each post.tags as tag}
+							<a
+								href="/?tag={tag}"
+							class="inline-block rounded-full border px-2.5 py-0.5 text-xs hover:brightness-125 transition-all"
+							style={tagStyle(tag)}
+							>#{tag}</a>
+						{/each}
+					{/if}
+					{#if isOwner}
+						<button
+							onclick={() => (editingTags = true)}
+							class="text-xs text-shame-300/60 hover:text-neon-400 transition-colors"
+						>{post.tags?.length ? '✏️' : '+ Add tags'}</button>
+					{/if}
+				</div>
+			{/if}
+		</div>
 		{#if post.reactions}
 			<div class="mt-4 pt-3 border-t border-shame-700/50">
 				<ReactionBar postId={post.id} reactions={post.reactions} />

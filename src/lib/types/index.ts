@@ -5,7 +5,7 @@ export interface User {
 	created_at: number;
 }
 
-export const REACTION_EMOJIS = ["😈", "❓", "💀", "🤦", "🔥"] as const;
+export const REACTION_EMOJIS = ["😈", "❓", "💀", "🤦", "🔥", "🏆"] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
 
 export const REACTION_LABELS: Record<ReactionEmoji, string> = {
@@ -14,7 +14,11 @@ export const REACTION_LABELS: Record<ReactionEmoji, string> = {
 	"💀": "Killed It",
 	"🤦": "Facepalm",
 	"🔥": "Dumpster Fire",
+	"🏆": "GOAT Advice",
 };
+
+export const GOLDEN_REACTION_THRESHOLD = 10;
+export const GOLDEN_UPVOTE_THRESHOLD = 10;
 
 export interface ReactionCount {
 	emoji: ReactionEmoji;
@@ -36,6 +40,8 @@ export interface Post {
 	createdAt: number;
 	userVote?: number | null;
 	reactions?: ReactionCount[];
+	tags?: string[];
+	isGolden?: boolean;
 }
 
 export interface Comment {
@@ -92,6 +98,19 @@ export interface PostRow {
 	username: string;
 	display_name: string | null;
 	trending_score?: number;
+}
+
+export function computeIsGolden(
+	reactions: ReactionCount[] | undefined,
+	upvotes: number,
+	downvotes: number,
+): boolean {
+	if (!reactions) return false;
+	const trophy = reactions.find((r) => r.emoji === "🏆");
+	return (
+		(trophy?.count ?? 0) >= GOLDEN_REACTION_THRESHOLD &&
+		upvotes - downvotes >= GOLDEN_UPVOTE_THRESHOLD
+	);
 }
 
 export interface CommentRow {

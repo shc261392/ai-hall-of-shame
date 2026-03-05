@@ -142,6 +142,6 @@ test.describe("POST /api/posts + GET /api/posts/[id] — full create+fetch cycle
 		const body = await res.json();
 		expect(body.id).toBe(postId);
 		expect(body).toHaveProperty("reactions");
-		expect(body.reactions).toHaveLength(5);
+		expect(body.reactions).toHaveLength(6);
 	});
 });

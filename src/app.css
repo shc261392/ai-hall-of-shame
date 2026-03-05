@@ -30,6 +30,11 @@
 	--color-success-500: #66bb6a;
 	--color-warning-500: #ffa726;
 	--color-error-500: #ef5350;
+
+	/* ── Golden ── */
+	--color-golden-700: #b8860b;
+	--color-golden-600: #daa520;
+	--color-golden-500: #ffd700;
 }
 
 html {
@@ -86,4 +91,21 @@ body {
 
 .animate-fade-slide-up {
 	animation: fade-slide-up 0.3s ease-out;
+}
+
+/* ── Golden post styling ── */
+
+@keyframes golden-shimmer {
+	0% { border-color: var(--color-golden-700); }
+	50% { border-color: var(--color-golden-500); }
+	100% { border-color: var(--color-golden-700); }
+}
+
+.border-golden {
+	border-color: var(--color-golden-600);
+}
+
+.golden-card {
+	animation: golden-shimmer 3s ease-in-out infinite;
+	box-shadow: 0 0 12px rgba(255, 215, 0, 0.15), 0 0 4px rgba(255, 215, 0, 0.1);
 }

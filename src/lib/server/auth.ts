@@ -16,11 +16,7 @@ interface JwtPayload {
 	username: string;
 }
 
-export async function signToken(
-	userId: string,
-	username: string,
-	secret: string,
-): Promise<string> {
+export async function signToken(userId: string, username: string, secret: string): Promise<string> {
 	const key = new TextEncoder().encode(secret);
 	return new SignJWT({ sub: userId, username } satisfies JwtPayload)
 		.setProtectedHeader({ alg: JWT_ALGORITHM })
@@ -31,10 +27,7 @@ export async function signToken(
 		.sign(key);
 }
 
-export async function verifyToken(
-	token: string,
-	secret: string,
-): Promise<JwtPayload | null> {
+export async function verifyToken(token: string, secret: string): Promise<JwtPayload | null> {
 	try {
 		const key = new TextEncoder().encode(secret);
 		const { payload } = await jwtVerify(token, key, {
@@ -42,10 +35,7 @@ export async function verifyToken(
 			issuer: JWT_ISSUER,
 			audience: JWT_AUDIENCE,
 		});
-		if (
-			typeof payload.sub !== "string" ||
-			typeof payload.username !== "string"
-		) {
+		if (typeof payload.sub !== "string" || typeof payload.username !== "string") {
 			return null;
 		}
 		return { sub: payload.sub, username: payload.username as string };
@@ -60,10 +50,7 @@ export function getAuthToken(request: Request): string | null {
 	return header.slice(7);
 }
 
-export async function getAuthUser(
-	request: Request,
-	secret: string,
-): Promise<JwtPayload | null> {
+export async function getAuthUser(request: Request, secret: string): Promise<JwtPayload | null> {
 	const token = getAuthToken(request);
 	if (!token) return null;
 	return verifyToken(token, secret);
@@ -79,10 +66,7 @@ export async function hashBackupCode(code: string): Promise<string> {
 		.join("");
 }
 
-export async function verifyBackupCode(
-	provided: string,
-	storedHash: string,
-): Promise<boolean> {
+export async function verifyBackupCode(provided: string, storedHash: string): Promise<boolean> {
 	const providedHash = await hashBackupCode(provided);
 	const a = new TextEncoder().encode(providedHash);
 	const b = new TextEncoder().encode(storedHash);
@@ -107,7 +91,7 @@ export function generateBackupCode(): string {
 	for (let i = 0; i < 32; i++) {
 		code += chars[bytes[i] % chars.length];
 	}
-	return code.match(/.{4}/g)!.join("-");
+	return (code.match(/.{4}/g) ?? []).join("-");
 }
 
 export function normalizeBackupCode(code: string): string {
@@ -144,15 +128,11 @@ export async function createTokenPair(
 	const token = await signToken(userId, username, secret);
 	const refreshToken = nanoid(48);
 	const tokenHash = await hashRefreshToken(refreshToken);
-	const refreshExpiry = remember
-		? REFRESH_EXPIRY_REMEMBER
-		: REFRESH_EXPIRY_SESSION;
+	const refreshExpiry = remember ? REFRESH_EXPIRY_REMEMBER : REFRESH_EXPIRY_SESSION;
 	const expiresAt = Math.floor(Date.now() / 1000) + refreshExpiry;
 
 	await db
-		.prepare(
-			"INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)",
-		)
+		.prepare("INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)")
 		.bind(nanoid(), userId, tokenHash, expiresAt)
 		.run();
 
@@ -192,47 +172,28 @@ export async function rotateRefreshToken(
 	const remainingSeconds = row.expires_at - Math.floor(Date.now() / 1000);
 	const isLongLived = remainingSeconds > REFRESH_EXPIRY_SESSION;
 
-	const pair = await createTokenPair(
-		user.id,
-		user.username,
-		secret,
-		db,
-		isLongLived,
-	);
+	const pair = await createTokenPair(user.id, user.username, secret, db, isLongLived);
 	return { ...pair, userId: user.id, username: user.username };
 }
 
 /**
  * Revoke all refresh tokens for a user (logout everywhere).
  */
-export async function revokeRefreshTokens(
-	db: D1Database,
-	userId: string,
-): Promise<void> {
-	await db
-		.prepare("DELETE FROM refresh_tokens WHERE user_id = ?")
-		.bind(userId)
-		.run();
+export async function revokeRefreshTokens(db: D1Database, userId: string): Promise<void> {
+	await db.prepare("DELETE FROM refresh_tokens WHERE user_id = ?").bind(userId).run();
 }
 
 /**
  * Revoke a single refresh token.
  */
-export async function revokeRefreshToken(
-	db: D1Database,
-	refreshToken: string,
-): Promise<void> {
+export async function revokeRefreshToken(db: D1Database, refreshToken: string): Promise<void> {
 	const tokenHash = await hashRefreshToken(refreshToken);
-	await db
-		.prepare("DELETE FROM refresh_tokens WHERE token_hash = ?")
-		.bind(tokenHash)
-		.run();
+	await db.prepare("DELETE FROM refresh_tokens WHERE token_hash = ?").bind(tokenHash).run();
 }
 
 // ── Personal API Key utilities ──
 
 const API_KEY_PREFIX = "pak_";
-const API_KEY_LENGTH = 52; // "pak_" (4) + nanoid(48)
 const API_KEY_PATTERN = /^pak_[A-Za-z0-9_-]{48}$/;
 const API_KEY_MAX_PER_USER = 3;
 const API_KEY_EXPIRY_DAYS = 90;
@@ -277,8 +238,7 @@ export async function createApiKey(
 	const prefix = rawKey.slice(0, 12) + "...";
 	const keyHash = await hashApiKey(rawKey);
 	const keyId = nanoid();
-	const expiresAt =
-		Math.floor(Date.now() / 1000) + API_KEY_EXPIRY_DAYS * 24 * 60 * 60;
+	const expiresAt = Math.floor(Date.now() / 1000) + API_KEY_EXPIRY_DAYS * 24 * 60 * 60;
 
 	await db
 		.prepare(
@@ -291,10 +251,7 @@ export async function createApiKey(
 }
 
 /** List all API keys for a user (never returns the actual key). */
-export async function listApiKeys(
-	userId: string,
-	db: D1Database,
-): Promise<ApiKeyRow[]> {
+export async function listApiKeys(userId: string, db: D1Database): Promise<ApiKeyRow[]> {
 	const { results } = await db
 		.prepare(
 			"SELECT id, name, key_prefix, last_used_at, expires_at, created_at FROM api_keys WHERE user_id = ? ORDER BY created_at DESC",
@@ -342,9 +299,7 @@ export async function verifyApiKey(
 		if (!row) return null;
 
 		// Update last_used_at (fire-and-forget)
-		db.prepare(
-			"UPDATE api_keys SET last_used_at = unixepoch() WHERE key_hash = ?",
-		)
+		db.prepare("UPDATE api_keys SET last_used_at = unixepoch() WHERE key_hash = ?")
 			.bind(keyHash)
 			.run()
 			.catch(() => {});

@@ -4,9 +4,11 @@
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
 	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
+	import TagInput from '$lib/components/TagInput.svelte';
 
 	let title = $state('');
 	let body = $state('');
+	let tags = $state<string[]>([]);
 	let submitting = $state(false);
 
 	// Redirect if not logged in
@@ -23,7 +25,8 @@
 		try {
 			const result = await api.post<{ id: string }>('/api/posts', {
 				title: title.trim(),
-				body: body.trim() || undefined
+				body: body.trim() || undefined,
+				tags: tags.length > 0 ? tags : undefined
 			});
 			addToast('Post submitted! 🎉', 'success');
 			goto(`/post/${result.id}`);
@@ -69,6 +72,11 @@
 				maxlength={10000}
 				rows={10}
 			/>
+		</div>
+
+		<div>
+			<label for="tag-input" class="block text-sm font-medium text-shame-200 mb-1">Tags (optional)</label>
+			<TagInput {tags} onchange={(t) => (tags = t)} inputId="tag-input" />
 		</div>
 
 		<div class="flex items-center justify-between pt-2">

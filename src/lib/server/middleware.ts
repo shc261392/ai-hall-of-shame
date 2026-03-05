@@ -3,12 +3,15 @@ import { json } from "@sveltejs/kit";
 import { dev } from "$app/environment";
 import { getAuthUser, getAuthToken, verifyApiKey } from "./auth";
 import type { RateLimitTier } from "./ratelimit";
-import {
-	checkBan,
-	checkRateLimit,
-	checkAndAutoBan,
-	cleanupExpiredData,
-} from "./ratelimit";
+import { checkBan, checkRateLimit, checkAndAutoBan, cleanupExpiredData } from "./ratelimit";
+
+/** Extract platform env, throwing 500 if unavailable (shouldn't happen in production). */
+export function getEnv(platform: App.Platform | undefined): App.Platform["env"] {
+	if (!platform?.env) {
+		throw new Error("Platform environment not available");
+	}
+	return platform.env;
+}
 
 export function getClientIp(request: Request): string {
 	return (
@@ -30,7 +33,7 @@ export async function resolveAuth(
 
 	// Fall back to API key (same Authorization: Bearer header)
 	const token = getAuthToken(request);
-	if (token && token.startsWith("pak_")) {
+	if (token?.startsWith("pak_")) {
 		try {
 			return await verifyApiKey(token, db);
 		} catch {
@@ -55,12 +58,10 @@ const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
 /** Run ban + rate limit + optional auth checks for POST endpoints.
  *  tier: "heavy" for expensive ops (create post, register), "light" for cheap ops (vote, react, comment). */
-export async function guardPost(
-	event: RequestEvent,
-	tier: RateLimitTier = "heavy",
-) {
+export async function guardPost(event: RequestEvent, tier: RateLimitTier = "heavy") {
 	const { request, platform } = event;
-	const db = platform!.env.DB;
+	const env = getEnv(platform);
+	const db = env.DB;
 	const ip = getClientIp(request);
 
 	// Reject oversized bodies before parsing
@@ -69,11 +70,7 @@ export async function guardPost(
 		const size = parseInt(contentLength, 10);
 		if (!Number.isNaN(size) && size > MAX_BODY_BYTES) {
 			return {
-				error: jsonError(
-					413,
-					"payload_too_large",
-					"Request body must be under 64 KB",
-				),
+				error: jsonError(413, "payload_too_large", "Request body must be under 64 KB"),
 			};
 		}
 	}
@@ -86,7 +83,7 @@ export async function guardPost(
 	}
 
 	// Auth required for POST
-	const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
+	const user = await resolveAuth(request, env.JWT_SECRET, db);
 	if (!user) {
 		return {
 			error: jsonError(
@@ -112,9 +109,7 @@ export async function guardPost(
 	]);
 
 	for (const banResult of banResults) {
-		const ban = banResult.results[0] as
-			| { reason: string; expires_at: number }
-			| undefined;
+		const ban = banResult.results[0] as { reason: string; expires_at: number } | undefined;
 		if (ban) {
 			return {
 				error: jsonError(
@@ -151,7 +146,7 @@ export async function guardPost(
 
 	// Opportunistic cleanup (roughly 1 in 20 requests)
 	if (Math.random() < 0.05) {
-		event.platform!.context.waitUntil(cleanupExpiredData(db));
+		event.platform?.context.waitUntil(cleanupExpiredData(db));
 	}
 
 	return { user, ip };
@@ -160,7 +155,8 @@ export async function guardPost(
 /** Lightweight rate limit check for GET endpoints. */
 export async function guardGet(event: RequestEvent) {
 	const { request, platform } = event;
-	const db = platform!.env.DB;
+	const env = getEnv(platform);
+	const db = env.DB;
 	const ip = getClientIp(request);
 
 	if (ip === "unknown") {
@@ -200,7 +196,7 @@ export async function guardGet(event: RequestEvent) {
 	}
 
 	// Optional auth (for user vote status) — supports JWT and API keys
-	const user = await resolveAuth(request, platform!.env.JWT_SECRET, db);
+	const user = await resolveAuth(request, env.JWT_SECRET, db);
 
 	return { user, ip };
 }
