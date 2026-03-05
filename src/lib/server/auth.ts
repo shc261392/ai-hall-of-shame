@@ -232,6 +232,8 @@ export async function revokeRefreshToken(
 // ── Personal API Key utilities ──
 
 const API_KEY_PREFIX = "pak_";
+const API_KEY_LENGTH = 52; // "pak_" (4) + nanoid(48)
+const API_KEY_PATTERN = /^pak_[A-Za-z0-9_-]{48}$/;
 const API_KEY_MAX_PER_USER = 3;
 const API_KEY_EXPIRY_DAYS = 90;
 
@@ -324,26 +326,31 @@ export async function verifyApiKey(
 	db: D1Database,
 ): Promise<{ sub: string; username: string } | null> {
 	if (!key.startsWith(API_KEY_PREFIX)) return null;
+	if (!API_KEY_PATTERN.test(key)) return null;
 
-	const keyHash = await hashApiKey(key);
-	const row = await db
-		.prepare(
-			`SELECT ak.user_id, ak.expires_at, u.username
-			 FROM api_keys ak JOIN users u ON ak.user_id = u.id
-			 WHERE ak.key_hash = ? AND ak.expires_at > unixepoch()`,
+	try {
+		const keyHash = await hashApiKey(key);
+		const row = await db
+			.prepare(
+				`SELECT ak.user_id, ak.expires_at, u.username
+				 FROM api_keys ak JOIN users u ON ak.user_id = u.id
+				 WHERE ak.key_hash = ? AND ak.expires_at > unixepoch()`,
+			)
+			.bind(keyHash)
+			.first<{ user_id: string; expires_at: number; username: string }>();
+
+		if (!row) return null;
+
+		// Update last_used_at (fire-and-forget)
+		db.prepare(
+			"UPDATE api_keys SET last_used_at = unixepoch() WHERE key_hash = ?",
 		)
-		.bind(keyHash)
-		.first<{ user_id: string; expires_at: number; username: string }>();
+			.bind(keyHash)
+			.run()
+			.catch(() => {});
 
-	if (!row) return null;
-
-	// Update last_used_at (fire-and-forget)
-	db.prepare(
-		"UPDATE api_keys SET last_used_at = unixepoch() WHERE key_hash = ?",
-	)
-		.bind(keyHash)
-		.run()
-		.catch(() => {});
-
-	return { sub: row.user_id, username: row.username };
+		return { sub: row.user_id, username: row.username };
+	} catch {
+		return null;
+	}
 }

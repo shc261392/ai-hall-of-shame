@@ -31,7 +31,12 @@ async function resolveAuth(
 	// Fall back to API key (same Authorization: Bearer header)
 	const token = getAuthToken(request);
 	if (token && token.startsWith("pak_")) {
-		return verifyApiKey(token, db);
+		try {
+			return await verifyApiKey(token, db);
+		} catch {
+			// DB error (e.g. table missing) — treat as unauthenticated
+			return null;
+		}
 	}
 
 	return null;
