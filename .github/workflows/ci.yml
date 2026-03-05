@@ -112,7 +112,10 @@ jobs:
           curl -s --max-time 5 http://localhost:5173/api/heartbeat 2>&1 || true
           exit 1
 
-      - run: pnpm test:e2e
+      - name: Run E2E tests
+        env:
+          TEST_JWT_SECRET: ci-test-secret-that-is-long-enough-for-hs256
+        run: pnpm test:e2e
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
