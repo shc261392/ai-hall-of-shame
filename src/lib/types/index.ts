@@ -53,6 +53,8 @@ export interface Comment {
 
 export interface AuthPayload {
 	token: string;
+	refreshToken: string;
+	expiresIn: number;
 	username: string;
 	userId: string;
 	backupCode?: string;

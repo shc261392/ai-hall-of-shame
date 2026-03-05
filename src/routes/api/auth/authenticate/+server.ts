@@ -2,7 +2,7 @@ import { json } from "@sveltejs/kit";
 import { dev } from "$app/environment";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import type { RequestHandler } from "./$types";
-import { signToken } from "$lib/server/auth";
+import { createTokenPair } from "$lib/server/auth";
 import { getClientIp, jsonError } from "$lib/server/middleware";
 import { checkBan, checkRateLimit } from "$lib/server/ratelimit";
 
@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ expires_at: ban.expiresAt },
 		);
 	}
-	const limit = await checkRateLimit(db, `ip:${ip}`, true);
+	const limit = await checkRateLimit(db, `ip:${ip}`, "heavy");
 	if (!limit.allowed) {
 		return jsonError(
 			429,
@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		);
 	}
 
-	let body: { challengeId: string; assertion: unknown };
+	let body: { challengeId: string; assertion: unknown; remember?: boolean };
 	try {
 		body = await request.json();
 	} catch {
@@ -150,14 +150,19 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		return jsonError(500, "user_not_found", "User record not found");
 	}
 
-	const token = await signToken(
+	const remember = !!body.remember;
+	const pair = await createTokenPair(
 		user.id,
 		user.username,
 		platform!.env.JWT_SECRET,
+		db,
+		remember,
 	);
 
 	return json({
-		token,
+		token: pair.token,
+		refreshToken: pair.refreshToken,
+		expiresIn: pair.expiresIn,
 		userId: user.id,
 		username: user.username,
 	});

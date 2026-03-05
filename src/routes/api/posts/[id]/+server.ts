@@ -12,6 +12,7 @@ import {
 	type ReactionEmoji,
 	type PostRow,
 } from "$lib/types";
+import { broadcast } from "$lib/server/broadcast";
 
 export const GET: RequestHandler = async (event) => {
 	const guard = await guardGet(event);
@@ -82,12 +83,12 @@ export const GET: RequestHandler = async (event) => {
 		createdAt: post.created_at,
 		userVote,
 		reactions,
-	});
+	}, event.request);
 };
 
 /** Soft-delete own post. */
 export const DELETE: RequestHandler = async (event) => {
-	const guard = await guardPost(event);
+	const guard = await guardPost(event, "light");
 	if ("error" in guard && guard.error) return guard.error;
 
 	const postId = event.params.id;
@@ -106,6 +107,12 @@ export const DELETE: RequestHandler = async (event) => {
 		.prepare("UPDATE posts SET deleted_at = unixepoch() WHERE id = ?")
 		.bind(postId)
 		.run();
+
+	broadcast(event.platform, "feed", "delete", { type: "post", id: postId });
+	broadcast(event.platform, `post:${postId}`, "delete", {
+		type: "post",
+		id: postId,
+	});
 
 	return json({ message: "Post deleted" });
 };

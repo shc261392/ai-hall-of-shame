@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RequestHandler } from "./$types";
 import {
-	signToken,
+	createTokenPair,
 	hashBackupCode,
 	generateBackupCode,
 	normalizeBackupCode,
@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ expires_at: ban.expiresAt },
 		);
 	}
-	const limit = await checkRateLimit(db, `ip:${ip}`, true);
+	const limit = await checkRateLimit(db, `ip:${ip}`, "heavy");
 	if (!limit.allowed) {
 		return jsonError(
 			429,
@@ -130,10 +130,19 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			),
 	]);
 
-	const token = await signToken(userId, username, platform!.env.JWT_SECRET);
+	const remember = !!(body as { remember?: boolean }).remember;
+	const pair = await createTokenPair(
+		userId,
+		username,
+		platform!.env.JWT_SECRET,
+		db,
+		remember,
+	);
 
 	return json({
-		token,
+		token: pair.token,
+		refreshToken: pair.refreshToken,
+		expiresIn: pair.expiresIn,
 		userId,
 		username,
 		backupCode,

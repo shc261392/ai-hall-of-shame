@@ -47,7 +47,7 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 	// Rate limit profile updates
 	const db = platform!.env.DB;
 	const ip = getClientIp(request);
-	const limit = await checkRateLimit(db, user.sub, true);
+	const limit = await checkRateLimit(db, user.sub, "light");
 	if (!limit.allowed) {
 		return jsonError(
 			429,
@@ -110,20 +110,18 @@ export const PATCH: RequestHandler = async ({ request, platform }) => {
 		return jsonError(400, "reserved_username", "This username is reserved");
 	}
 
-	// Check for uniqueness (case-insensitive)
-	const existing = await db
-		.prepare("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?) AND id != ?")
-		.bind(newUsername, user.sub)
-		.first();
-
-	if (existing) {
-		return jsonError(409, "username_taken", "This username is already taken");
+	// Use DB constraint to handle uniqueness (avoids TOCTOU race)
+	try {
+		await db
+			.prepare("UPDATE users SET username = ? WHERE id = ?")
+			.bind(newUsername, user.sub)
+			.run();
+	} catch (e) {
+		if (e instanceof Error && e.message.includes("UNIQUE constraint")) {
+			return jsonError(409, "username_taken", "This username is already taken");
+		}
+		throw e;
 	}
-
-	await db
-		.prepare("UPDATE users SET username = ? WHERE id = ?")
-		.bind(newUsername, user.sub)
-		.run();
 
 	// Issue new token with updated username
 	const token = await signToken(

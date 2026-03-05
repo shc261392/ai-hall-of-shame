@@ -2,7 +2,7 @@
 	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
-	import type { Comment } from '$lib/types';
+	import type { Comment, PaginatedResponse } from '$lib/types';
 	import CommentItem from './CommentItem.svelte';
 	import LoadingSpinner from './LoadingSpinner.svelte';
 	import EmptyState from './EmptyState.svelte';
@@ -16,23 +16,67 @@
 
 	let comments = $state<Comment[]>([]);
 	let loading = $state(true);
+	let loadingMore = $state(false);
+	let hasMore = $state(false);
+	let page = $state(1);
 	let body = $state('');
 	let submitting = $state(false);
+	let sentinel: HTMLDivElement | undefined = $state();
+
+	const PAGE_SIZE = 50;
 
 	$effect(() => {
 		postId;
 		loadComments();
 	});
 
+	// IntersectionObserver for infinite scroll
+	$effect(() => {
+		if (!sentinel) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+					loadMoreComments();
+				}
+			},
+			{ rootMargin: '200px' }
+		);
+		observer.observe(sentinel);
+		return () => observer.disconnect();
+	});
+
 	async function loadComments() {
 		loading = true;
 		try {
-			const res = await api.get<{ data: Comment[] }>(`/api/posts/${postId}/comments`);
+			const res = await api.get<PaginatedResponse<Comment>>(`/api/posts/${postId}/comments`, {
+				page: '1',
+				limit: String(PAGE_SIZE)
+			});
 			comments = res.data;
+			hasMore = res.has_more;
+			page = 1;
 		} catch {
 			addToast('Failed to load comments', 'error');
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadMoreComments() {
+		loadingMore = true;
+		try {
+			const nextPage = page + 1;
+			const res = await api.get<PaginatedResponse<Comment>>(`/api/posts/${postId}/comments`, {
+				page: String(nextPage),
+				limit: String(PAGE_SIZE)
+			});
+			comments = [...comments, ...res.data];
+			hasMore = res.has_more;
+			page = nextPage;
+		} catch {
+			addToast('Failed to load more comments', 'error');
+		} finally {
+			loadingMore = false;
 		}
 	}
 
@@ -89,5 +133,15 @@
 				<CommentItem {comment} {postId} ondeleted={loadComments} />
 			{/each}
 		</div>
+
+		{#if hasMore}
+			<div bind:this={sentinel} class="mt-4 flex justify-center py-3">
+				{#if loadingMore}
+					<LoadingSpinner />
+				{:else}
+					<span class="text-sm text-shame-400">Scroll for more comments</span>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 </section>

@@ -14,6 +14,7 @@ import {
 	type ReactionEmoji,
 	type PostRow,
 } from "$lib/types";
+import { broadcast } from "$lib/server/broadcast";
 
 const SORT_QUERIES = {
 	trending: `SELECT p.*, u.username, u.display_name,
@@ -55,50 +56,63 @@ export const GET: RequestHandler = async (event) => {
 	const hasMore = results.length > limit;
 	const posts = results.slice(0, limit);
 
-	// If user is authenticated, get their votes for these posts
-	let userVotes: Record<string, number> = {};
-	if ("user" in guard && guard.user) {
-		const postIds = posts.map((p: PostRow) => p.id);
-		if (postIds.length > 0) {
-			const placeholders = postIds.map(() => "?").join(",");
-			const { results: votes } = await db
-				.prepare(
-					`SELECT target_id, value FROM votes WHERE user_id = ? AND target_type = 'post' AND target_id IN (${placeholders})`,
-				)
-				.bind(guard.user.sub, ...postIds)
-				.all<{ target_id: string; value: number }>();
-			userVotes = Object.fromEntries(votes.map((v) => [v.target_id, v.value]));
-		}
-	}
-
-	// Get reaction counts for all posts
 	const postIds = posts.map((p: PostRow) => p.id);
+	let userVotes: Record<string, number> = {};
 	const reactionsByPost: Record<string, Record<string, number>> = {};
 	const userReactionsByPost: Record<string, Set<string>> = {};
 
 	if (postIds.length > 0) {
 		const placeholders = postIds.map(() => "?").join(",");
-		const { results: reactionData } = await db
-			.prepare(
-				`SELECT post_id, emoji, COUNT(*) as count FROM reactions WHERE post_id IN (${placeholders}) GROUP BY post_id, emoji`,
-			)
-			.bind(...postIds)
-			.all<{ post_id: string; emoji: string; count: number }>();
+		const isAuthed = "user" in guard && guard.user;
 
-		for (const r of reactionData) {
+		// Build batch of secondary queries
+		const statements: D1PreparedStatement[] = [
+			db
+				.prepare(
+					`SELECT post_id, emoji, COUNT(*) as count FROM reactions WHERE post_id IN (${placeholders}) GROUP BY post_id, emoji`,
+				)
+				.bind(...postIds),
+		];
+		if (isAuthed) {
+			statements.push(
+				db
+					.prepare(
+						`SELECT target_id, value FROM votes WHERE user_id = ? AND target_type = 'post' AND target_id IN (${placeholders})`,
+					)
+					.bind(guard.user!.sub, ...postIds),
+				db
+					.prepare(
+						`SELECT post_id, emoji FROM reactions WHERE post_id IN (${placeholders}) AND user_id = ?`,
+					)
+					.bind(...postIds, guard.user!.sub),
+			);
+		}
+
+		const batchResults = await db.batch(statements);
+
+		// Parse reaction counts (always index 0)
+		for (const r of batchResults[0].results as unknown as {
+			post_id: string;
+			emoji: string;
+			count: number;
+		}[]) {
 			if (!reactionsByPost[r.post_id]) reactionsByPost[r.post_id] = {};
 			reactionsByPost[r.post_id][r.emoji] = r.count;
 		}
 
-		if ("user" in guard && guard.user) {
-			const { results: userRxData } = await db
-				.prepare(
-					`SELECT post_id, emoji FROM reactions WHERE post_id IN (${placeholders}) AND user_id = ?`,
-				)
-				.bind(...postIds, guard.user.sub)
-				.all<{ post_id: string; emoji: string }>();
-
-			for (const r of userRxData) {
+		if (isAuthed) {
+			// Parse user votes (index 1)
+			for (const v of batchResults[1].results as unknown as {
+				target_id: string;
+				value: number;
+			}[]) {
+				userVotes[v.target_id] = v.value;
+			}
+			// Parse user reactions (index 2)
+			for (const r of batchResults[2].results as unknown as {
+				post_id: string;
+				emoji: string;
+			}[]) {
 				if (!userReactionsByPost[r.post_id])
 					userReactionsByPost[r.post_id] = new Set();
 				userReactionsByPost[r.post_id].add(r.emoji);
@@ -132,7 +146,7 @@ export const GET: RequestHandler = async (event) => {
 		page,
 		limit,
 		has_more: hasMore,
-	});
+	}, event.request);
 };
 
 export const POST: RequestHandler = async (event) => {
@@ -158,6 +172,13 @@ export const POST: RequestHandler = async (event) => {
 		.prepare("INSERT INTO posts (id, user_id, title, body) VALUES (?, ?, ?, ?)")
 		.bind(postId, guard.user!.sub, parsed.data.title, parsed.data.body)
 		.run();
+
+	broadcast(event.platform, "feed", "new_post", {
+		id: postId,
+		title: parsed.data.title,
+		username: guard.user!.username,
+		createdAt: Math.floor(Date.now() / 1000),
+	});
 
 	return json(
 		{

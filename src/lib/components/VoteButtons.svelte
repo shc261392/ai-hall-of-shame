@@ -72,6 +72,16 @@
 	}
 
 	let score = $derived(localUpvotes - localDownvotes);
+	let bumping = $state(false);
+	let prevScore: number | undefined;
+
+	$effect(() => {
+		if (prevScore !== undefined && score !== prevScore) {
+			bumping = true;
+			setTimeout(() => (bumping = false), 300);
+		}
+		prevScore = score;
+	});
 </script>
 
 <div class="flex items-center gap-1">
@@ -87,7 +97,7 @@
 			<path d="M10 3l7 7h-4v7H7v-7H3l7-7z" />
 		</svg>
 	</button>
-	<span class="min-w-[2ch] text-center text-sm font-medium {score > 0 ? 'text-flame-400' : score < 0 ? 'text-ice-400' : 'text-shame-300'}">
+	<span class="min-w-[2ch] text-center text-sm font-medium {bumping ? 'animate-bump' : ''} {score > 0 ? 'text-flame-400' : score < 0 ? 'text-ice-400' : 'text-shame-300'}">
 		{score}
 	</span>
 	<button

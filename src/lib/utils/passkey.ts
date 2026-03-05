@@ -9,7 +9,9 @@ import type { AuthPayload } from "$lib/types";
 
 export { browserSupportsWebAuthn };
 
-export async function register(): Promise<{ backupCode: string }> {
+export async function register(
+	remember = false,
+): Promise<{ backupCode: string }> {
 	const { challengeId, challenge } = await api.get<{
 		challengeId: string;
 		challenge: string;
@@ -40,13 +42,22 @@ export async function register(): Promise<{ backupCode: string }> {
 	const result = await api.post<AuthPayload>("/api/auth/register", {
 		challengeId,
 		attestation,
+		remember,
 	});
 
-	login(result.token, result.username, result.userId);
+	login(
+		result.token,
+		result.refreshToken,
+		result.expiresIn,
+		result.username,
+		result.userId,
+		undefined,
+		remember,
+	);
 	return { backupCode: result.backupCode! };
 }
 
-export async function authenticate(): Promise<void> {
+export async function authenticate(remember = false): Promise<void> {
 	const { challengeId, challenge } = await api.get<{
 		challengeId: string;
 		challenge: string;
@@ -65,13 +76,23 @@ export async function authenticate(): Promise<void> {
 	const result = await api.post<AuthPayload>("/api/auth/authenticate", {
 		challengeId,
 		assertion,
+		remember,
 	});
 
-	login(result.token, result.username, result.userId);
+	login(
+		result.token,
+		result.refreshToken,
+		result.expiresIn,
+		result.username,
+		result.userId,
+		undefined,
+		remember,
+	);
 }
 
 export async function recoverWithBackupCode(
 	backupCode: string,
+	remember = false,
 ): Promise<{ backupCode: string }> {
 	const { challengeId, challenge } = await api.get<{
 		challengeId: string;
@@ -104,8 +125,17 @@ export async function recoverWithBackupCode(
 		backupCode,
 		challengeId,
 		attestation,
+		remember,
 	});
 
-	login(result.token, result.username, result.userId);
+	login(
+		result.token,
+		result.refreshToken,
+		result.expiresIn,
+		result.username,
+		result.userId,
+		undefined,
+		remember,
+	);
 	return { backupCode: result.backupCode! };
 }

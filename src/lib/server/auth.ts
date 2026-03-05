@@ -1,7 +1,15 @@
 import { SignJWT, jwtVerify } from "jose";
+import { nanoid } from "nanoid";
 
-const JWT_EXPIRY = "7d";
+const JWT_EXPIRY = "15m";
+const JWT_EXPIRY_SECONDS = 900; // Must match JWT_EXPIRY
 const JWT_ALGORITHM = "HS256";
+const JWT_ISSUER = "hallofshame.cc";
+const JWT_AUDIENCE = "hallofshame.cc";
+
+/** Refresh token expiry: 30 days for "remember me", 24 hours for session */
+const REFRESH_EXPIRY_REMEMBER = 30 * 24 * 60 * 60; // 30 days in seconds
+const REFRESH_EXPIRY_SESSION = 24 * 60 * 60; // 24 hours in seconds
 
 interface JwtPayload {
 	sub: string;
@@ -17,6 +25,8 @@ export async function signToken(
 	return new SignJWT({ sub: userId, username } satisfies JwtPayload)
 		.setProtectedHeader({ alg: JWT_ALGORITHM })
 		.setIssuedAt()
+		.setIssuer(JWT_ISSUER)
+		.setAudience(JWT_AUDIENCE)
 		.setExpirationTime(JWT_EXPIRY)
 		.sign(key);
 }
@@ -29,6 +39,8 @@ export async function verifyToken(
 		const key = new TextEncoder().encode(secret);
 		const { payload } = await jwtVerify(token, key, {
 			algorithms: [JWT_ALGORITHM],
+			issuer: JWT_ISSUER,
+			audience: JWT_AUDIENCE,
 		});
 		if (
 			typeof payload.sub !== "string" ||
@@ -100,4 +112,119 @@ export function generateBackupCode(): string {
 
 export function normalizeBackupCode(code: string): string {
 	return code.replace(/-/g, "").toUpperCase();
+}
+
+// ── Refresh token utilities ──
+
+async function hashRefreshToken(token: string): Promise<string> {
+	const data = new TextEncoder().encode(token);
+	const hash = await crypto.subtle.digest("SHA-256", data);
+	return Array.from(new Uint8Array(hash))
+		.map((b) => b.toString(16).padStart(2, "0"))
+		.join("");
+}
+
+export interface TokenPair {
+	token: string;
+	refreshToken: string;
+	expiresIn: number; // seconds until access token expires
+}
+
+/**
+ * Create both access + refresh tokens for a user.
+ * Stores the refresh token hash in D1.
+ */
+export async function createTokenPair(
+	userId: string,
+	username: string,
+	secret: string,
+	db: D1Database,
+	remember: boolean,
+): Promise<TokenPair> {
+	const token = await signToken(userId, username, secret);
+	const refreshToken = nanoid(48);
+	const tokenHash = await hashRefreshToken(refreshToken);
+	const refreshExpiry = remember
+		? REFRESH_EXPIRY_REMEMBER
+		: REFRESH_EXPIRY_SESSION;
+	const expiresAt = Math.floor(Date.now() / 1000) + refreshExpiry;
+
+	await db
+		.prepare(
+			"INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+		)
+		.bind(nanoid(), userId, tokenHash, expiresAt)
+		.run();
+
+	return { token, refreshToken, expiresIn: JWT_EXPIRY_SECONDS };
+}
+
+/**
+ * Rotate a refresh token: verify the old one, delete it, issue a new pair.
+ * Returns null if the refresh token is invalid/expired.
+ */
+export async function rotateRefreshToken(
+	refreshToken: string,
+	secret: string,
+	db: D1Database,
+): Promise<(TokenPair & { userId: string; username: string }) | null> {
+	const tokenHash = await hashRefreshToken(refreshToken);
+
+	// Delete and return the token atomically
+	const row = await db
+		.prepare(
+			"DELETE FROM refresh_tokens WHERE token_hash = ? AND expires_at > unixepoch() RETURNING user_id, expires_at",
+		)
+		.bind(tokenHash)
+		.first<{ user_id: string; expires_at: number }>();
+
+	if (!row) return null;
+
+	// Look up user
+	const user = await db
+		.prepare("SELECT id, username FROM users WHERE id = ?")
+		.bind(row.user_id)
+		.first<{ id: string; username: string }>();
+
+	if (!user) return null;
+
+	// Calculate remaining time to preserve "remember" duration
+	const remainingSeconds = row.expires_at - Math.floor(Date.now() / 1000);
+	const isLongLived = remainingSeconds > REFRESH_EXPIRY_SESSION;
+
+	const pair = await createTokenPair(
+		user.id,
+		user.username,
+		secret,
+		db,
+		isLongLived,
+	);
+	return { ...pair, userId: user.id, username: user.username };
+}
+
+/**
+ * Revoke all refresh tokens for a user (logout everywhere).
+ */
+export async function revokeRefreshTokens(
+	db: D1Database,
+	userId: string,
+): Promise<void> {
+	await db
+		.prepare("DELETE FROM refresh_tokens WHERE user_id = ?")
+		.bind(userId)
+		.run();
+}
+
+/**
+ * Revoke a single refresh token.
+ */
+export async function revokeRefreshToken(
+	db: D1Database,
+	refreshToken: string,
+): Promise<void> {
+	const tokenHash = await hashRefreshToken(refreshToken);
+	await db
+		.prepare("DELETE FROM refresh_tokens WHERE token_hash = ?")
+		.bind(tokenHash)
+		.run();
 }

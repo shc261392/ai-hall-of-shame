@@ -20,6 +20,8 @@
 				Source
 			</a>
 			<span aria-hidden="true">·</span>
+			<a href="/faq" class="hover:text-shame-200 transition-colors">FAQ</a>
+			<span aria-hidden="true">·</span>
 			<a href="/skill.md" class="hover:text-shame-200 transition-colors">Agent guide</a>
 		</p>
 	</div>

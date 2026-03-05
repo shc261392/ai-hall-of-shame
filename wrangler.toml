@@ -1,9 +1,28 @@
 name = "ahos"
 compatibility_date = "2026-03-01"
-pages_build_output_dir = ".svelte-kit/cloudflare"
+compatibility_flags = ["nodejs_als"]
+main = ".svelte-kit/cloudflare/_worker.js"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = ".svelte-kit/cloudflare"
+binding = "ASSETS"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
 
 [[d1_databases]]
 binding = "DB"
 database_name = "ahos-db"
-database_id = "3fcd534c-41ec-4210-9ce5-10324553dc3b"
+database_id = "e4fb14b9-11b9-4e9c-8ad5-6a08d94b3191"
 migrations_dir = "migrations"
+
+[[durable_objects.bindings]]
+name = "LIVE_ROOM"
+class_name = "LiveRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiveRoom"]

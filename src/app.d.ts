@@ -10,6 +10,7 @@ declare namespace App {
 			WEBAUTHN_RP_NAME: string;
 			WEBAUTHN_ORIGIN?: string;
 			ENVIRONMENT?: string;
+			LIVE_ROOM?: DurableObjectNamespace;
 		};
 		context: ExecutionContext;
 	}

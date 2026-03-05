@@ -1,56 +1,23 @@
 /**
  * Auth helpers for E2E tests.
  *
- * Creates JWTs and seeds test users directly against the local dev server.
+ * Creates JWTs and seeds test users via the dev-only HTTP endpoints.
  * The JWT_SECRET must match the value in .dev.vars.
  */
 import { SignJWT } from "jose";
-import { readdirSync } from "fs";
-import { join, resolve } from "path";
-import { createRequire } from "module";
-
-const _require = createRequire(import.meta.url);
 
 const DEV_JWT_SECRET =
 	process.env.TEST_JWT_SECRET ?? "CyAhlMouMSZ3Cezj6opc6hqHBWBFEdFtxXzYCJRXGQQ=";
 
-// Path to the local Miniflare D1 SQLite file
-const D1_DIR = resolve(
-	process.cwd(),
-	".wrangler/state/v3/d1/miniflare-D1DatabaseObject",
-);
-
-function getLocalDbPath(): string | null {
+/** Insert a user row into the local D1 via the dev-only seed endpoint. */
+async function seedUserInDb(userId: string, username: string): Promise<void> {
+	const base = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173";
 	try {
-		const files = readdirSync(D1_DIR).filter((f) => f.endsWith(".sqlite"));
-		return files.length > 0 ? join(D1_DIR, files[0]) : null;
-	} catch {
-		return null;
-	}
-}
-
-/** Insert a user row into the local D1 SQLite DB (no-op if not found). */
-function seedUserInDb(userId: string, username: string): void {
-	const dbPath = getLocalDbPath();
-	if (!dbPath) return;
-	try {
-		// node:sqlite is available in Node 22.5+
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const { DatabaseSync } = _require("node:sqlite") as {
-			DatabaseSync: new (
-				path: string,
-			) => {
-				exec: (sql: string) => void;
-				prepare: (sql: string) => { run: (...args: unknown[]) => void };
-				close: () => void;
-			};
-		};
-		const db = new DatabaseSync(dbPath);
-		db.prepare("INSERT OR IGNORE INTO users (id, username) VALUES (?, ?)").run(
-			userId,
-			username,
-		);
-		db.close();
+		await fetch(`${base}/api/test/seed-user`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ userId, username }),
+		});
 	} catch {
 		// Silently ignore — tests that need a real user will skip gracefully
 	}
@@ -71,6 +38,8 @@ export async function mintToken(
 	return new SignJWT({ sub: userId, username })
 		.setProtectedHeader({ alg: "HS256" })
 		.setIssuedAt()
+		.setIssuer("hallofshame.cc")
+		.setAudience("hallofshame.cc")
 		.setExpirationTime("1h")
 		.sign(secret);
 }
@@ -79,11 +48,21 @@ export async function mintToken(
 export async function createTestUser(prefix = "testuser"): Promise<TestUser> {
 	const userId = `test-${prefix}-${Date.now()}`;
 	const username = `${prefix}_${Date.now()}`;
-	seedUserInDb(userId, username);
+	await seedUserInDb(userId, username);
 	const token = await mintToken(userId, username);
 	return { userId, username, token };
 }
 
 export function authHeaders(token: string) {
 	return { Authorization: `Bearer ${token}` };
+}
+
+/** Clear rate_limits table so tests don't get 429. */
+export async function clearRateLimits(): Promise<void> {
+	const base = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173";
+	try {
+		await fetch(`${base}/api/test/reset-rate-limits`, { method: "POST" });
+	} catch {
+		// Silently ignore — server may not be ready
+	}
 }

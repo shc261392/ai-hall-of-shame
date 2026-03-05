@@ -72,7 +72,12 @@
 		if (e.target === e.currentTarget) onclose();
 	}
 
-	function handleSignOut() {
+	async function handleSignOut() {
+		try {
+			await api.delete('/api/auth/refresh');
+		} catch {
+			// Best-effort server-side revocation
+		}
 		logout();
 		onclose();
 	}

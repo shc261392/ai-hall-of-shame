@@ -1,9 +1,10 @@
 # Known Issues & Backlog
 
-> Generated from pre-deployment expert review. Items triaged as **MEDIUM** or **LOW** priority.
-> Critical and High issues were fixed immediately during the review.
+> Maintained from expert reviews (Security, Code Review, Database, Performance, UI/UX).
+> Critical, High, and Blocker issues are fixed immediately.
+> Medium and Low items are tracked here for future work.
 >
-> ✅ = Resolved  |  ⬚ = Open
+> Last updated after Phase 2H final review session.
 
 ---
 
@@ -20,184 +21,125 @@
 
 ## Security
 
-### MEDIUM — JWT Revocation Mechanism
-**Source**: Security Expert, Abuse Assessment  
-Currently JWTs are valid for 7 days with no revocation. A compromised token cannot be invalidated. Implement a token blocklist table in D1 or switch to short-lived tokens + refresh tokens.
+### MEDIUM — CSP `unsafe-inline` for Scripts and Styles
+**Source**: Security Expert (C1, M6)
+SvelteKit SPA injects inline scripts, requiring `unsafe-inline` in `script-src`. Tailwind CSS v4 injects inline styles requiring `unsafe-inline` in `style-src`. Hash-based CSP is complex with SvelteKit's runtime. Investigate nonce-based CSP or adapter-level CSP support when available.
 
-### MEDIUM — CSP `unsafe-inline` for Styles
-**Source**: Security Expert  
-Tailwind CSS v4 injects inline styles, requiring `unsafe-inline` in Content-Security-Policy for `style-src`. Investigate nonce-based CSP or extracting Tailwind to external stylesheets for stricter CSP.
-
-### MEDIUM — CORS OPTIONS Handler
-**Source**: Security Expert  
-API routes don't explicitly handle OPTIONS preflight requests. SvelteKit/Cloudflare may handle this implicitly, but explicit CORS headers should be verified for cross-origin scenarios.
-
-### ✅ ~~MEDIUM — Content Deletion / Moderation System~~
-**Source**: Security Expert, Abuse Assessment  
-~~No ability for users to delete their own posts/comments, and no admin moderation tools.~~  
-**Resolved**: Soft-delete for own posts/comments (DELETE endpoints), Report Abuse button (POST /api/reports) with auto-hide at ≥10 reports, pre-filled GitHub issue URL for abuse reports. See migrations 0012, API routes, and `ReportButton.svelte`.
+### MEDIUM — Refresh Token Family Tracking
+**Source**: Security Expert (M1)
+If a refresh token is stolen and used, the legitimate user's next refresh attempt will fail (token already consumed), but the server doesn't detect the theft and revoke all tokens in the family. Implement refresh token rotation with family tracking so stolen chains are detected and all related tokens invalidated.
 
 ### MEDIUM — Registration Daily Caps
-**Source**: Abuse Assessment  
+**Source**: Abuse Assessment
 Rate limiting exists per-IP for registration, but no daily cap on total new accounts. A motivated attacker could create many accounts from rotating IPs. Consider a global daily registration cap or Cloudflare Turnstile.
 
 ### MEDIUM — NSFW / Offensive Content Filtering
-**Source**: Abuse Assessment  
+**Source**: Abuse Assessment
 No content filtering for posts or comments. Consider integrating a basic word filter or Cloudflare Workers AI content moderation for text submissions.
 
-### ✅ ~~MEDIUM — Content-Length Pre-Check~~
-**Source**: Abuse Assessment  
-~~API routes don't reject oversized request bodies before parsing.~~  
-**Resolved**: Added `MAX_BODY_BYTES` (64 KB) Content-Length validation in `guardPost()` middleware. Returns 413 for oversized payloads.
-
 ### LOW — Cloudflare WAF / Turnstile Integration
-**Source**: Security Expert, Abuse Assessment  
+**Source**: Security Expert, Abuse Assessment
 Consider enabling Cloudflare WAF managed rules and adding Turnstile CAPTCHA to registration/submission flows for defense-in-depth against automated abuse.
 
 ### LOW — Audit Logging
-**Source**: Security Expert  
-No audit trail for security-sensitive actions (login, registration, password recovery, ban events). Consider a lightweight audit log table for forensic analysis.
+**Source**: Security Expert (L3)
+No audit trail for security-sensitive actions (login, registration, recovery, ban events). Consider a lightweight audit log table for forensic analysis.
 
-### LOW — Timing Attack on Username Check
-**Source**: Security Expert  
-The `isReservedUsername` check uses array `.includes()` which may leak timing information about reserved usernames. Low risk but could use constant-time comparison if concerned.
+### LOW — X-Forwarded-For Spoofable
+**Source**: Security Expert (L4)
+`getClientIp()` uses `X-Forwarded-For` which can be spoofed. On Cloudflare, `CF-Connecting-IP` is the trusted source and is preferred. Risk is negligible when deployed behind Cloudflare, but worth noting for non-CF environments.
+
+### LOW — Tokens in Web Storage
+**Source**: Security Expert (L5)
+Access and refresh tokens are stored in `sessionStorage`. This is an architectural trade-off for the SPA model (no cookies, no SSR). XSS could exfiltrate tokens, but CSP and DOMPurify mitigate this. Short-lived access tokens (15 min) limit exposure.
+
+### LOW — Test Endpoints in Production Bundle
+**Source**: Code Reviewer
+`/api/test/*` routes are guarded by `dev` import from `$app/environment` which is compile-time dead code eliminated in production builds. The route files still exist in source but handlers are unreachable.
 
 ---
 
 ## Database
 
 ### MEDIUM — ON DELETE CASCADE Missing
-**Source**: Database Expert  
-Foreign keys exist but lack `ON DELETE CASCADE`. Deleting a user leaves orphaned posts, comments, votes, and reactions. Requires table recreation migrations (SQLite doesn't support `ALTER TABLE ... ADD CONSTRAINT`).
+**Source**: Database Expert
+Foreign keys exist but lack `ON DELETE CASCADE` (except reactions and reports). Deleting a user leaves orphaned posts, comments, votes. Requires table recreation (SQLite limitation).
 
 ### MEDIUM — Denormalized Vote Count Consistency
-**Source**: Database Expert  
-`posts.vote_count` and `comments.vote_count` are denormalized counters updated in application code. No DB triggers or periodic reconciliation exists. If a race condition corrupts a count, it stays wrong. Consider a reconciliation job or D1 triggers when available.
+**Source**: Database Expert, Code Reviewer
+`posts.upvotes/downvotes` and `comments.upvotes/downvotes` are denormalized counters. No DB triggers or periodic reconciliation exists. Concurrent vote requests can desync counters if the UNIQUE constraint on votes is violated during a race. Consider a reconciliation job.
 
 ### MEDIUM — DB Query Batching
-**Source**: Database Expert, Performance Expert  
-Multiple sequential queries in middleware (ban check → rate limit check) and endpoints could use `db.batch()` to reduce D1 round trips. Refactoring guardPost/guardGet and API routes to batch queries would improve latency.
-
-### ✅ ~~LOW — Missing Composite Indexes~~
-**Source**: Database Expert  
-~~Some query patterns could benefit from composite indexes.~~  
-**Resolved**: Added composite indexes in migration 0013: `idx_votes_lookup(target_type, target_id, user_id)` and `idx_reactions_post_user(post_id, user_id, emoji)`.
-
-### LOW — No Database Migrations Versioning Table
-**Source**: Database Expert  
-Migrations are applied via Wrangler CLI but there's no application-level tracking of which migrations have been applied. Wrangler tracks this, but consider a `_migrations` table for visibility.
+**Source**: Database Expert, Performance Expert, Code Reviewer
+Multiple sequential queries in middleware (ban check → rate limit check) and endpoints (single-post GET makes 3-4 sequential queries) could use `db.batch()` to reduce D1 round trips.
 
 ### LOW — PRAGMA Optimizations
-**Source**: Database Expert  
+**Source**: Database Expert
 D1 may benefit from `PRAGMA journal_mode=WAL` and `PRAGMA foreign_keys=ON` if not already set by Cloudflare. Verify foreign key enforcement is active at runtime.
 
 ---
 
 ## Performance
 
-### ✅ ~~MEDIUM — Lazy-Load marked + DOMPurify~~
-**Source**: Performance Expert  
-~~`marked` (~35KB) and `dompurify` (~15KB) are imported eagerly in `markdown.ts`.~~  
-**Resolved**: Extracted `stripMarkdown()` to a zero-dependency `strip-markdown.ts` module so the home page (PostCard) no longer pulls in marked+dompurify. Full rendering still loads them only when needed.
-
-### ✅ ~~MEDIUM — HTTP Cache Headers on API Responses~~
-**Source**: Performance Expert  
-~~API responses don't set `Cache-Control` headers.~~  
-**Resolved**: Added `cachedJson()` helper in middleware.ts. All public GET endpoints (posts list, post detail, comments) now return `Cache-Control: public, max-age=10, stale-while-revalidate=30`.
-
 ### LOW — Image/Asset Optimization
-**Source**: Performance Expert  
-No image optimization pipeline. If user-generated images are added later, integrate Cloudflare Images or a build-time optimizer. Currently low impact since the app is text-only.
+**Source**: Performance Expert
+No image optimization pipeline. If user-generated images are added later, integrate Cloudflare Images. Currently low impact since the app is text-only.
 
 ### LOW — Bundle Size Monitoring
-**Source**: Performance Expert  
-No automated bundle size tracking. Consider adding `vite-plugin-bundle-analyzer` or a CI check to catch unexpected size regressions.
-
-### LOW — Preconnect Hints
-**Source**: Performance Expert  
-No `<link rel="preconnect">` hints for external origins. If external fonts or APIs are added, preconnect hints should be included in `app.html`.
+**Source**: Performance Expert
+No automated bundle size tracking. Consider adding a CI check to catch unexpected size regressions.
 
 ---
 
 ## UI/UX & Accessibility
 
-### ✅ ~~MEDIUM — PostCard Interactive Nesting~~
-**Source**: UI/UX Expert, Accessibility Expert  
-~~`PostCard.svelte` wraps the entire card in an `<a>` tag, but contains interactive children.~~  
-**Resolved**: Restructured PostCard to use a `<div>` with click handler. Title is the only `<a>` link; vote/reaction buttons are no longer nested inside an anchor.
-
-### ✅ ~~MEDIUM — Focus Management in Modals~~
-**Source**: UI/UX Expert  
-~~`PasskeyAuth.svelte` and `BackupCodeModal.svelte` don't trap focus inside the modal.~~  
-**Resolved**: Created `focus-trap.ts` utility. Both modals now use `use:initFocusTrap` Svelte action for Tab cycling between first/last focusable elements. Added `tabindex="-1"` for role="dialog" a11y compliance.
-
-### ✅ ~~MEDIUM — Skip Navigation Link~~
-**Source**: Accessibility Expert  
-~~No "Skip to main content" link for keyboard users.~~  
-**Resolved**: Added visually-hidden skip link as first focusable element in `+layout.svelte`, targeting `#main-content` on the `<main>` element.
-
 ### MEDIUM — Error State Communication
-**Source**: UI/UX Expert  
+**Source**: UI/UX Expert
 Form validation errors are shown via Toast notifications which are ephemeral. Inline error messages associated with form fields (using `aria-describedby`) would be more accessible and persistent.
 
 ### LOW — Keyboard Navigation Enhancement
-**Source**: UI/UX Expert  
+**Source**: UI/UX Expert
 Vote buttons and reaction buttons could benefit from keyboard shortcut hints and visible focus indicators beyond the default browser outline.
-
-### ✅ ~~LOW — Reduced Motion Support~~
-**Source**: Accessibility Expert  
-~~Loading spinner animation doesn't respect `prefers-reduced-motion`.~~  
-**Resolved**: `app.css` includes `@media (prefers-reduced-motion: reduce)` rules that disable/simplify animations globally.
-
-### ✅ ~~LOW — Color Contrast on Muted Text~~
-**Source**: UI/UX Expert  
-~~Some `text-zinc-500` usage on dark backgrounds may not meet WCAG AA contrast ratio.~~  
-**Resolved**: Audited — only instances are decorative footer text (`text-shame-300/50`, `text-shame-300/60`) which is intentionally subdued. No functional text has insufficient contrast.
-
-### ✅ ~~LOW — Empty State CTAs~~
-**Source**: UI/UX Expert  
-~~Empty states show messages but could include a direct call-to-action button.~~  
-**Resolved**: Enhanced `EmptyState.svelte` with optional `actionHref` + `actionLabel` props. Home page empty state now includes CTA to `/submit`.
 
 ---
 
 ## Code Quality
 
-### ✅ ~~MEDIUM — `any` Type Usage (~20 instances)~~
-**Source**: Code Reviewer  
-~~Multiple files use `any` type, particularly in API response handling.~~  
-**Resolved**: Added `PostRow` and `CommentRow` interfaces to `types/index.ts`. Replaced all `any` casts in API routes with typed D1 queries (`.first<PostRow>()`, `.all<PostRow>()`, `.all<CommentRow>()`).
+### MEDIUM — Unused Functions/Imports in Components
+**Source**: Code Reviewer
+Several components have unused imports or functions that may indicate incomplete features or dead code: `Header.svelte`, `PasskeyAuth.svelte`, `CommentSection.svelte`. Audit and clean up.
 
-### ✅ ~~MEDIUM — `@types/marked` Removal~~
-**Source**: Code Reviewer  
-~~`@types/marked` is installed but `marked` v17+ ships its own TypeScript types.~~  
-**Resolved**: Removed `@types/marked` and `@types/dompurify` from devDependencies.
+### LOW — `any` Type in Catch Blocks
+**Source**: Code Reviewer
+Error catch blocks use untyped `catch (e)`. Consider using `unknown` and properly narrowing error types.
 
-### ✅ ~~LOW — Error Boundary Components~~
-**Source**: Code Reviewer  
-~~No `+error.svelte` pages exist.~~  
-**Resolved**: Created `src/routes/+error.svelte` with custom error page showing status code, message, and "Back to feed" CTA.
+### LOW — Stores Use `writable` Instead of Svelte 5 Runes
+**Source**: Code Reviewer
+Auth and toast stores use `writable()` from `svelte/store` instead of Svelte 5's `$state` runes. This works but is legacy Svelte 4 style. Migrate to rune-based stores when convenient.
 
-### LOW — Type Guard for Discriminated Unions
-**Source**: Code Reviewer  
-API error responses have different shapes but aren't narrowed with type guards. Add discriminated union types for API responses.
+### LOW — `generateUniqueUsername` Sequential Queries
+**Source**: Code Reviewer
+Username generation makes up to 10 sequential DB queries to find an available username. Consider a more efficient approach (uuid suffix, batch check).
 
 ### LOW — Console.error in Production
-**Source**: Code Reviewer  
-Several `console.error()` calls exist in server routes. These are fine for Cloudflare Workers logging but should be reviewed to ensure no sensitive data is logged.
+**Source**: Code Reviewer
+Several `console.error()` calls exist in server routes. Workers Logs (observability) is now enabled at 100% sampling in `wrangler.toml`, so these logs are captured in the Cloudflare dashboard. Review to ensure no sensitive data is logged.
+
+### LOW — Report Count Increment Non-Atomic
+**Source**: Code Reviewer
+The report count check and increment are not atomic — two concurrent reports could both pass the threshold check before either increments. Low risk given expected traffic.
+
+### LOW — Stale JWT Username After Profile Update
+**Source**: Code Reviewer
+When a user updates their username, other open tabs still have the old username in their JWT until the token is refreshed. The profile is fetched fresh from `/api/auth/me`, so display is correct, but the JWT payload is stale.
 
 ---
 
 ## Architecture
 
-### ✅ ~~MEDIUM — No Soft Delete~~
-**Source**: Database Expert, Security Expert  
-~~Posts and comments have no soft-delete mechanism.~~  
-**Resolved**: Added `deleted_at` column to posts and comments (migration 0012). DELETE endpoints for own content set `deleted_at = unixepoch()`. All queries filter `WHERE deleted_at IS NULL`. Reports table with auto-hide at ≥10 reports.
-
-### LOW — No WebSocket / Real-time Updates
-**Source**: UI/UX Expert  
-Vote counts and reactions update only on page load. Consider polling or Cloudflare Durable Objects for real-time updates in a future version.
+### LOW — Real-time SSE Graceful Degradation
+**Source**: Code Reviewer
+SSE connections retry with exponential backoff and give up after 5 attempts. There is no user-visible indicator that real-time updates are unavailable. Consider a subtle UI hint.
 
 ### LOW — No Pagination on Home Page
 **Source**: Performance Expert  

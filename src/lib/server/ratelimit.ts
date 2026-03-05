@@ -1,10 +1,22 @@
 const WINDOW_SECONDS = 60;
-const POST_LIMIT_PER_USER = 5;
-const POST_LIMIT_PER_IP = 10;
-const GET_LIMIT_PER_IP = 60;
-const BAN_THRESHOLD_COUNT = 50;
+const BAN_THRESHOLD_COUNT = 100;
 const BAN_THRESHOLD_WINDOW = 600; // 10 minutes
 const BAN_DURATION = 7 * 24 * 60 * 60; // 7 days in seconds
+
+/**
+ * Rate limit tiers.
+ *
+ * "heavy" — expensive operations: create post, register, auth, report
+ * "light" — cheap interactions: vote, react, comment, profile update
+ * "get"   — read-only fetches
+ */
+const LIMITS: Record<string, { user: number; ip: number }> = {
+	heavy: { user: 5, ip: 15 },
+	light: { user: 30, ip: 60 },
+	get: { user: 0, ip: 120 }, // user: 0 means not checked per-user for GETs
+};
+
+export type RateLimitTier = "heavy" | "light" | "get";
 
 interface RateLimitResult {
 	allowed: boolean;
@@ -34,28 +46,20 @@ export async function checkBan(
 export async function checkRateLimit(
 	db: D1Database,
 	identifier: string,
-	isPost: boolean,
+	tier: RateLimitTier,
 ): Promise<RateLimitResult> {
-	const limit = isPost
-		? identifier.startsWith("ip:")
-			? POST_LIMIT_PER_IP
-			: POST_LIMIT_PER_USER
-		: GET_LIMIT_PER_IP;
+	const tierLimits = LIMITS[tier];
+	const limit = identifier.startsWith("ip:")
+		? tierLimits.ip
+		: tierLimits.user;
+
+	// Skip if limit is 0 (e.g. per-user for GET)
+	if (limit === 0) return { allowed: true };
 
 	const windowStart =
 		Math.floor(Date.now() / 1000 / WINDOW_SECONDS) * WINDOW_SECONDS;
 
-	// Upsert rate limit counter
-	await db
-		.prepare(
-			`INSERT INTO rate_limits (identifier, window_start, count)
-			 VALUES (?, ?, 1)
-			 ON CONFLICT(identifier, window_start) DO UPDATE SET count = count + 1`,
-		)
-		.bind(identifier, windowStart)
-		.run();
-
-	// Check current + previous window for sliding window approximation
+	// Check current + previous window for sliding window approximation BEFORE incrementing
 	const { results } = await db
 		.prepare(
 			"SELECT window_start, count FROM rate_limits WHERE identifier = ? AND window_start >= ?",
@@ -73,6 +77,16 @@ export async function checkRateLimit(
 			retryAfterSeconds: Math.max(1, retryAfterSeconds),
 		};
 	}
+
+	// Only increment after confirming the request is allowed
+	await db
+		.prepare(
+			`INSERT INTO rate_limits (identifier, window_start, count)
+			 VALUES (?, ?, 1)
+			 ON CONFLICT(identifier, window_start) DO UPDATE SET count = count + 1`,
+		)
+		.bind(identifier, windowStart)
+		.run();
 
 	return { allowed: true };
 }

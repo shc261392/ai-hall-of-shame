@@ -56,27 +56,20 @@ fi
 CI=true npx wrangler d1 migrations apply ahos-db --remote
 
 echo ""
-echo "🔑 Ensuring Pages project exists..."
-# create the Pages project if it doesn't exist yet
-if ! npx wrangler pages project info ahos >/dev/null 2>&1; then
-  echo "⚙️  Creating Cloudflare Pages project 'ahos'..."
-  npx wrangler pages project create ahos --production-branch=main
-fi
-
 echo "🔑 Setting secrets..."
 if [ -n "${JWT_SECRET:-}" ]; then
-  echo "$JWT_SECRET" | npx wrangler pages secret put JWT_SECRET --project-name=ahos
+  echo "$JWT_SECRET" | npx wrangler secret put JWT_SECRET
 else
   echo "⚠️  JWT_SECRET not set in .env — generate one and set it:"
-  echo '    openssl rand -base64 48 | npx wrangler pages secret put JWT_SECRET --project-name=ahos'
+  echo '    openssl rand -base64 48 | npx wrangler secret put JWT_SECRET'
 fi
 
 if [ -n "${WEBAUTHN_RP_ID:-}" ]; then
-  echo "$WEBAUTHN_RP_ID" | npx wrangler pages secret put WEBAUTHN_RP_ID --project-name=ahos
+  echo "$WEBAUTHN_RP_ID" | npx wrangler secret put WEBAUTHN_RP_ID
 fi
 
 if [ -n "${WEBAUTHN_RP_NAME:-}" ]; then
-  echo "$WEBAUTHN_RP_NAME" | npx wrangler pages secret put WEBAUTHN_RP_NAME --project-name=ahos
+  echo "$WEBAUTHN_RP_NAME" | npx wrangler secret put WEBAUTHN_RP_NAME
 fi
 
 echo ""

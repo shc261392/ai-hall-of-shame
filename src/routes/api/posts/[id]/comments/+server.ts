@@ -9,6 +9,7 @@ import {
 } from "$lib/server/middleware";
 import { commentCreateSchema } from "$lib/server/validation";
 import type { CommentRow } from "$lib/types";
+import { broadcast } from "$lib/server/broadcast";
 
 export const GET: RequestHandler = async (event) => {
 	const guard = await guardGet(event);
@@ -74,13 +75,12 @@ export const GET: RequestHandler = async (event) => {
 		page,
 		limit,
 		has_more: hasMore,
-	});
+	}, event.request);
 };
 
 export const POST: RequestHandler = async (event) => {
-	const guard = await guardPost(event);
+	const guard = await guardPost(event, "light");
 	if ("error" in guard && guard.error) return guard.error;
-
 	const postId = event.params.id;
 	const db = event.platform!.env.DB;
 
@@ -121,6 +121,15 @@ export const POST: RequestHandler = async (event) => {
 			.bind(postId),
 	]);
 
+	broadcast(event.platform, `post:${postId}`, "new_comment", {
+		postId,
+		commentId,
+	});
+	broadcast(event.platform, "feed", "new_comment", {
+		postId,
+		commentId,
+	});
+
 	return json(
 		{
 			id: commentId,
@@ -132,7 +141,7 @@ export const POST: RequestHandler = async (event) => {
 
 /** Soft-delete own comment. */
 export const DELETE: RequestHandler = async (event) => {
-	const guard = await guardPost(event);
+	const guard = await guardPost(event, "light");
 	if ("error" in guard && guard.error) return guard.error;
 
 	const postId = event.params.id;
@@ -162,6 +171,11 @@ export const DELETE: RequestHandler = async (event) => {
 			)
 			.bind(postId),
 	]);
+
+	broadcast(event.platform, `post:${postId}`, "delete", {
+		type: "comment",
+		id: commentId,
+	});
 
 	return json({ message: "Comment deleted" });
 };

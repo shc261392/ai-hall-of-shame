@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { createTestUser, authHeaders } from "../helpers/auth";
+import { createTestUser, authHeaders, clearRateLimits } from "../helpers/auth";
+
+test.beforeEach(() => clearRateLimits());
 
 const BASE = "http://localhost:5173";
 
@@ -56,12 +58,15 @@ test.describe("POST /api/posts — validation", () => {
 		expect(res.status()).toBe(400);
 	});
 
-	test("rejects missing body field (400)", async ({ request }) => {
+	test("accepts post with optional body omitted (201)", async ({ request }) => {
 		const res = await request.post(`${BASE}/api/posts`, {
 			headers: authHeaders(token),
-			data: { title: "Just a title" },
+			data: { title: "Title without body" },
 		});
-		expect(res.status()).toBe(400);
+		// body is optional in schema — defaults to ""
+		expect(res.status()).toBe(201);
+		const json = await res.json();
+		expect(json.id).toBeTruthy();
 	});
 
 	test("rejects invalid JSON (400)", async ({ request }) => {

@@ -2,6 +2,7 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { json } from "@sveltejs/kit";
 import { dev } from "$app/environment";
 import { getAuthUser } from "./auth";
+import type { RateLimitTier } from "./ratelimit";
 import {
 	checkBan,
 	checkRateLimit,
@@ -28,22 +29,26 @@ export function jsonError(
 
 const MAX_BODY_BYTES = 64 * 1024; // 64 KB
 
-/** Run ban + rate limit + optional auth checks for POST endpoints. */
-export async function guardPost(event: RequestEvent) {
+/** Run ban + rate limit + optional auth checks for POST endpoints.
+ *  tier: "heavy" for expensive ops (create post, register), "light" for cheap ops (vote, react, comment). */
+export async function guardPost(event: RequestEvent, tier: RateLimitTier = "heavy") {
 	const { request, platform } = event;
 	const db = platform!.env.DB;
 	const ip = getClientIp(request);
 
 	// Reject oversized bodies before parsing
 	const contentLength = request.headers.get("content-length");
-	if (contentLength && parseInt(contentLength, 10) > MAX_BODY_BYTES) {
-		return {
-			error: jsonError(
-				413,
-				"payload_too_large",
-				"Request body must be under 64 KB",
-			),
-		};
+	if (contentLength) {
+		const size = parseInt(contentLength, 10);
+		if (!Number.isNaN(size) && size > MAX_BODY_BYTES) {
+			return {
+				error: jsonError(
+					413,
+					"payload_too_large",
+					"Request body must be under 64 KB",
+				),
+			};
+		}
 	}
 
 	// Reject if no IP (direct access bypassing CF) — skip in dev
@@ -65,17 +70,32 @@ export async function guardPost(event: RequestEvent) {
 		};
 	}
 
-	// Check bans (user + IP)
-	for (const identifier of [user.sub, `ip:${ip}`]) {
-		const ban = await checkBan(db, identifier);
-		if (ban.banned) {
+	// Check bans (user + IP) in a single batch
+	const banResults = await db.batch([
+		db
+			.prepare(
+				"SELECT reason, expires_at FROM bans WHERE identifier = ? AND expires_at > unixepoch()",
+			)
+			.bind(user.sub),
+		db
+			.prepare(
+				"SELECT reason, expires_at FROM bans WHERE identifier = ? AND expires_at > unixepoch()",
+			)
+			.bind(`ip:${ip}`),
+	]);
+
+	for (const banResult of banResults) {
+		const ban = banResult.results[0] as
+			| { reason: string; expires_at: number }
+			| undefined;
+		if (ban) {
 			return {
 				error: jsonError(
 					403,
 					"banned",
-					`Account suspended for abusive activity. Ban expires: ${ban.expiresAt}`,
+					`Account suspended for abusive activity. Ban expires: ${new Date(ban.expires_at * 1000).toISOString()}`,
 					{
-						expires_at: ban.expiresAt,
+						expires_at: new Date(ban.expires_at * 1000).toISOString(),
 					},
 				),
 			};
@@ -84,13 +104,13 @@ export async function guardPost(event: RequestEvent) {
 
 	// Rate limit (user + IP)
 	for (const identifier of [user.sub, `ip:${ip}`]) {
-		const limit = await checkRateLimit(db, identifier, true);
+		const limit = await checkRateLimit(db, identifier, tier);
 		if (!limit.allowed) {
 			return {
 				error: jsonError(
 					429,
 					"rate_limited",
-					`Too many requests. You can make 5 POST requests per minute. Retry in ${limit.retryAfterSeconds}s.`,
+					`Too many requests. Retry in ${limit.retryAfterSeconds}s.`,
 					{
 						retry_after_seconds: limit.retryAfterSeconds,
 					},
@@ -138,7 +158,7 @@ export async function guardGet(event: RequestEvent) {
 	}
 
 	// Lightweight rate limit for GETs
-	const limit = await checkRateLimit(db, `ip:${ip}`, false);
+	const limit = await checkRateLimit(db, `ip:${ip}`, "get");
 	if (!limit.allowed) {
 		return {
 			error: jsonError(
@@ -159,10 +179,15 @@ export async function guardGet(event: RequestEvent) {
 }
 
 /** JSON response with short cache for public GET endpoints. */
-export function cachedJson(data: unknown, maxAge = 10) {
+export function cachedJson(data: unknown, request?: Request, maxAge = 10) {
+	const isAuthed = !!request?.headers.get("Authorization");
+	const cacheControl = isAuthed
+		? `private, max-age=${maxAge}`
+		: `public, max-age=${maxAge}, stale-while-revalidate=30`;
 	return json(data, {
 		headers: {
-			"Cache-Control": `public, max-age=${maxAge}, stale-while-revalidate=30`,
+			"Cache-Control": cacheControl,
+			Vary: "Authorization",
 		},
 	});
 }

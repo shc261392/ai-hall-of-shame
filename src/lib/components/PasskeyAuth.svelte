@@ -16,12 +16,13 @@
 	let backupCodeInput = $state('');
 	let newBackupCode = $state<string | null>(null);
 	let supported = $state(browserSupportsWebAuthn());
+	let remember = $state(false);
 
 	async function handleRegister() {
 		loading = true;
 		error = '';
 		try {
-			const { backupCode } = await register();
+			const { backupCode } = await register(remember);
 			newBackupCode = backupCode;
 			addToast('Account created! Save your backup code.', 'success');
 		} catch (e: any) {
@@ -35,7 +36,7 @@
 		loading = true;
 		error = '';
 		try {
-			await authenticate();
+			await authenticate(remember);
 			addToast('Signed in!', 'success');
 			onclose();
 		} catch (e: any) {
@@ -50,7 +51,7 @@
 		loading = true;
 		error = '';
 		try {
-			const { backupCode } = await recoverWithBackupCode(backupCodeInput.trim());
+			const { backupCode } = await recoverWithBackupCode(backupCodeInput.trim(), remember);
 			newBackupCode = backupCode;
 			addToast('Account recovered! Save your new backup code.', 'success');
 		} catch (e: any) {
@@ -105,6 +106,10 @@
 
 			{#if mode === 'main'}
 				<div class="space-y-3">
+					<label class="flex items-center gap-2 cursor-pointer text-sm text-shame-200">
+						<input type="checkbox" bind:checked={remember} class="accent-neon-500 h-4 w-4 rounded" />
+						Remember this device for 30 days
+					</label>
 					<button
 						onclick={handleRegister}
 						disabled={loading || !supported}
@@ -137,6 +142,10 @@
 						placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
 						class="w-full rounded-lg border border-shame-600 bg-shame-800 px-3 py-2 text-sm text-shame-100 placeholder:text-shame-300/50 focus:border-neon-500 focus:outline-none"
 					/>
+					<label class="flex items-center gap-2 cursor-pointer text-sm text-shame-200">
+						<input type="checkbox" bind:checked={remember} class="accent-neon-500 h-4 w-4 rounded" />
+						Remember this device for 30 days
+					</label>
 					<button
 						onclick={handleRecover}
 						disabled={loading || !backupCodeInput.trim()}

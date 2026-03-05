@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Comment } from '$lib/types';
 	import VoteButtons from './VoteButtons.svelte';
-	import ReportButton from './ReportButton.svelte';
+	import MoreActions from './MoreActions.svelte';
 	import { auth } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { addToast } from '$lib/stores/toast';
@@ -59,18 +59,13 @@
 					<span>·</span>
 					<span>{timeAgo(comment.createdAt)}</span>
 				</div>
-				<div class="flex items-center gap-2">
-					<ReportButton targetType="comment" targetId={comment.id} />
-					{#if isOwner}
-						<button
-							onclick={deleteComment}
-							disabled={deleting}
-							class="text-xs text-shame-300 hover:text-error-500 disabled:opacity-50 transition-colors"
-						>
-							{deleting ? '...' : '🗑️'}
-						</button>
-					{/if}
-				</div>
+				<MoreActions
+					targetType="comment"
+					targetId={comment.id}
+					showDelete={isOwner}
+					{deleting}
+					ondelete={deleteComment}
+				/>
 			</div>
 		</div>
 	</div>

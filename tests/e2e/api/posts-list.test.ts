@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { clearRateLimits } from "../helpers/auth";
+
+test.beforeEach(() => clearRateLimits());
 
 const BASE = "http://localhost:5173";
 

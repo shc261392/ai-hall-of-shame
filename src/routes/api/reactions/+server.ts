@@ -8,9 +8,10 @@ import {
 	REACTION_LABELS,
 	type ReactionEmoji,
 } from "$lib/types";
+import { broadcast } from "$lib/server/broadcast";
 
 export const POST: RequestHandler = async (event) => {
-	const guard = await guardPost(event);
+	const guard = await guardPost(event, "light");
 	if ("error" in guard && guard.error) return guard.error;
 
 	const body = await event.request.json().catch(() => null);
@@ -78,6 +79,19 @@ export const POST: RequestHandler = async (event) => {
 		count: countMap.get(e) ?? 0,
 		userReacted: userSet.has(e),
 	}));
+
+	// Broadcast reaction update to both channels
+	const reactionCounts = Object.fromEntries(
+		REACTION_EMOJIS.map((e) => [e, countMap.get(e) ?? 0]),
+	);
+	broadcast(event.platform, "feed", "reaction", {
+		postId,
+		reactions: reactionCounts,
+	});
+	broadcast(event.platform, `post:${postId}`, "reaction", {
+		postId,
+		reactions: reactionCounts,
+	});
 
 	return json({ reactions });
 };

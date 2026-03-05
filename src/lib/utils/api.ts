@@ -1,8 +1,10 @@
 import { get } from "svelte/store";
-import { auth, logout } from "$lib/stores/auth";
+import { auth, logout, tryRefresh } from "$lib/stores/auth";
 import type { ApiError } from "$lib/types";
 
 class ApiClient {
+	private refreshPromise: Promise<string | null> | null = null;
+
 	private getHeaders(): HeadersInit {
 		const headers: HeadersInit = { "Content-Type": "application/json" };
 		const state = get(auth);
@@ -20,7 +22,7 @@ class ApiClient {
 			}
 		}
 		const res = await fetch(url.toString(), { headers: this.getHeaders() });
-		return this.handle<T>(res);
+		return this.handle<T>(res, () => this.get<T>(path, params));
 	}
 
 	async post<T>(path: string, body?: unknown): Promise<T> {
@@ -29,7 +31,7 @@ class ApiClient {
 			headers: this.getHeaders(),
 			body: body ? JSON.stringify(body) : undefined,
 		});
-		return this.handle<T>(res);
+		return this.handle<T>(res, () => this.post<T>(path, body));
 	}
 
 	async patch<T>(path: string, body: unknown): Promise<T> {
@@ -38,7 +40,7 @@ class ApiClient {
 			headers: this.getHeaders(),
 			body: JSON.stringify(body),
 		});
-		return this.handle<T>(res);
+		return this.handle<T>(res, () => this.patch<T>(path, body));
 	}
 
 	async delete<T>(path: string): Promise<T> {
@@ -46,11 +48,19 @@ class ApiClient {
 			method: "DELETE",
 			headers: this.getHeaders(),
 		});
-		return this.handle<T>(res);
+		return this.handle<T>(res, () => this.delete<T>(path));
 	}
 
-	private async handle<T>(res: Response): Promise<T> {
-		if (res.status === 401) {
+	private async handle<T>(res: Response, retry?: () => Promise<T>): Promise<T> {
+		if (res.status === 401 && retry) {
+			// Try refreshing the token
+			const state = get(auth);
+			if (state.refreshToken) {
+				const newToken = await this.doRefresh();
+				if (newToken) {
+					return retry();
+				}
+			}
 			logout();
 		}
 		if (!res.ok) {
@@ -61,6 +71,16 @@ class ApiClient {
 			throw err;
 		}
 		return res.json();
+	}
+
+	/** Dedup concurrent refresh attempts. */
+	private doRefresh(): Promise<string | null> {
+		if (!this.refreshPromise) {
+			this.refreshPromise = tryRefresh().finally(() => {
+				this.refreshPromise = null;
+			});
+		}
+		return this.refreshPromise;
 	}
 }
 

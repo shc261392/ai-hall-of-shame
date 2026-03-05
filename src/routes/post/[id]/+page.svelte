@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy, untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/utils/api';
@@ -6,11 +7,12 @@
 	import { addToast } from '$lib/stores/toast';
 	import { auth } from '$lib/stores/auth';
 	import { timeAgo } from '$lib/utils/time';
+	import { LiveConnection } from '$lib/utils/live';
 	import VoteButtons from '$lib/components/VoteButtons.svelte';
 	import ReactionBar from '$lib/components/ReactionBar.svelte';
 	import CommentSection from '$lib/components/CommentSection.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-	import ReportButton from '$lib/components/ReportButton.svelte';
+	import MoreActions from '$lib/components/MoreActions.svelte';
 	import type { Post } from '$lib/types';
 
 	let post = $state<Post | null>(null);
@@ -23,8 +25,49 @@
 	const renderedBody = $derived(post?.body ? renderMarkdown(post.body) : '');
 	const isOwner = $derived(post && $auth.userId === post.userId);
 
+	// Real-time connection for this post
+	let live: LiveConnection | null = null;
+	let unsub: (() => void) | null = null;
+
 	$effect(() => {
-		if (postId) loadPost(postId);
+		const id = postId;
+		if (id) {
+			// Clean up previous connection without tracking these reads
+			untrack(() => {
+				unsub?.();
+				live?.close();
+			});
+			loadPost(id);
+			// Set up live connection for this post
+			const conn = new LiveConnection(`post:${id}`);
+			const off = conn.on((evt) => {
+				if (!post) return;
+				if (evt.event === 'vote' && evt.data.targetId === id && evt.data.targetType === 'post') {
+					post = { ...post, upvotes: evt.data.upvotes as number, downvotes: evt.data.downvotes as number };
+				} else if (evt.event === 'reaction' && evt.data.postId === id && post.reactions) {
+					const counts = evt.data.reactions as Record<string, number>;
+					post = {
+						...post,
+						reactions: post.reactions.map((r) => ({
+							...r,
+							count: counts[r.emoji] ?? r.count,
+						})),
+					};
+				} else if (evt.event === 'new_comment' && evt.data.postId === id) {
+					post = { ...post, commentCount: (post.commentCount ?? 0) + 1 };
+				} else if (evt.event === 'delete' && evt.data.type === 'post' && evt.data.id === id) {
+					addToast('This post has been deleted', 'info');
+					goto('/');
+				}
+			});
+			live = conn;
+			unsub = off;
+		}
+	});
+
+	onDestroy(() => {
+		unsub?.();
+		live?.close();
 	});
 
 	async function loadPost(id: string) {
@@ -103,17 +146,15 @@
 				<ReactionBar postId={post.id} reactions={post.reactions} />
 			</div>
 		{/if}
-		<div class="mt-3 pt-3 border-t border-shame-700/50 flex items-center justify-between">
-			<ReportButton targetType="post" targetId={post.id} targetTitle={post.title} />
-			{#if isOwner}
-				<button
-					onclick={deletePost}
-					disabled={deleting}
-					class="text-xs text-shame-300 hover:text-error-500 disabled:opacity-50 transition-colors"
-				>
-					{deleting ? 'Deleting...' : '🗑️ Delete'}
-				</button>
-			{/if}
+		<div class="mt-3 pt-3 border-t border-shame-700/50 flex items-center justify-end">
+			<MoreActions
+				targetType="post"
+				targetId={post.id}
+				targetTitle={post.title}
+				showDelete={!!isOwner}
+				{deleting}
+				ondelete={deletePost}
+			/>
 		</div>
 	</article>
 

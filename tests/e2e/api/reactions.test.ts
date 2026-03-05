@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { createTestUser, authHeaders } from "../helpers/auth";
+import { createTestUser, authHeaders, clearRateLimits } from "../helpers/auth";
+
+test.beforeEach(() => clearRateLimits());
 
 const BASE = "http://localhost:5173";
 const FAKE_POST_ID = "aaaabbbbccccddddeeee1";

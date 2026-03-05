@@ -20,9 +20,11 @@ test.describe("Submit page", () => {
 test.describe("Post detail page", () => {
 	test("shows 404 content for unknown post id", async ({ page }) => {
 		await page.goto("/post/this-post-does-not-exist-xyz");
-		await page.waitForLoadState("networkidle");
+		// Wait for error state to render (SSE retries prevent networkidle)
+		await page.waitForSelector("text=/not found|404|back/i", {
+			timeout: 10_000,
+		});
 		const body = await page.locator("body").textContent();
-		// Should show not found or navigate away — not a crash
 		expect(body).not.toMatch(/TypeError|ReferenceError/);
 		expect(body?.match(/not found|404|back/i)).toBeTruthy();
 	});
@@ -31,7 +33,8 @@ test.describe("Post detail page", () => {
 		const errors: string[] = [];
 		page.on("pageerror", (err) => errors.push(err.message));
 		await page.goto("/post/aaaabbbbccccddddeeee1");
-		await page.waitForLoadState("networkidle");
+		// Wait for content to render (SSE retries prevent networkidle)
+		await page.waitForSelector("text=/not found|back/i", { timeout: 10_000 });
 		// Filter expected "not found" fetch errors vs real JS crashes
 		const crashErrors = errors.filter(
 			(e) => !e.includes("not_found") && !e.includes("404"),

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import { auth } from '$lib/stores/auth';
+	import { auth, logout } from '$lib/stores/auth';
+	import { api } from '$lib/utils/api';
 	import PasskeyAuth from './PasskeyAuth.svelte';
 
 	let showAuth = $state(false);
@@ -10,6 +11,15 @@
 		if ($auth.username) {
 			openProfile($auth.username);
 		}
+	}
+
+	async function handleLogout() {
+		try {
+			await api.delete('/api/auth/refresh');
+		} catch {
+			// Best-effort server-side revocation
+		}
+		logout();
 	}
 </script>
 

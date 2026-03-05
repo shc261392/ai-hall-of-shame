@@ -2,9 +2,10 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { guardPost, jsonError } from "$lib/server/middleware";
 import { voteSchema } from "$lib/server/validation";
+import { broadcast } from "$lib/server/broadcast";
 
 export const POST: RequestHandler = async (event) => {
-	const guard = await guardPost(event);
+	const guard = await guardPost(event, "light");
 	if ("error" in guard && guard.error) return guard.error;
 
 	let body: unknown;
@@ -27,10 +28,10 @@ export const POST: RequestHandler = async (event) => {
 	const table = targetType === "post" ? "posts" : "comments";
 	const target = await db
 		.prepare(
-			`SELECT id, user_id FROM ${table} WHERE id = ? AND deleted_at IS NULL`,
+			`SELECT id, user_id${targetType === "comment" ? ", post_id" : ""} FROM ${table} WHERE id = ? AND deleted_at IS NULL`,
 		)
 		.bind(targetId)
-		.first<{ id: string; user_id: string }>();
+		.first<{ id: string; user_id: string; post_id?: string }>();
 	if (!target) {
 		return jsonError(404, "not_found", `${targetType} not found`);
 	}
@@ -65,6 +66,7 @@ export const POST: RequestHandler = async (event) => {
 					)
 					.bind(upvoteDelta, downvoteDelta, targetId),
 			]);
+			broadcastVote(event, targetId, targetType, table, db, target.post_id);
 			return json({ vote: null, message: "Vote removed" });
 		} else {
 			// Flip vote
@@ -82,6 +84,7 @@ export const POST: RequestHandler = async (event) => {
 					)
 					.bind(upvoteDelta, downvoteDelta, targetId),
 			]);
+			broadcastVote(event, targetId, targetType, table, db, target.post_id);
 			return json({ vote: value, message: "Vote changed" });
 		}
 	} else {
@@ -100,6 +103,43 @@ export const POST: RequestHandler = async (event) => {
 				)
 				.bind(upvoteDelta, downvoteDelta, targetId),
 		]);
+		broadcastVote(event, targetId, targetType, table, db, target.post_id);
 		return json({ vote: value, message: "Vote recorded" }, { status: 201 });
 	}
 };
+
+function broadcastVote(
+	event: Parameters<RequestHandler>[0],
+	targetId: string,
+	targetType: string,
+	table: string,
+	db: D1Database,
+	commentPostId?: string,
+) {
+	event.platform!.context.waitUntil(
+		db
+			.prepare(`SELECT upvotes, downvotes FROM ${table} WHERE id = ?`)
+			.bind(targetId)
+			.first<{ upvotes: number; downvotes: number }>()
+			.then((row) => {
+				if (!row) return;
+				const postId = targetType === "post" ? targetId : commentPostId;
+				if (targetType === "post") {
+					broadcast(event.platform, "feed", "vote", {
+						targetId,
+						targetType,
+						upvotes: row.upvotes,
+						downvotes: row.downvotes,
+					});
+				}
+				if (postId) {
+					broadcast(event.platform, `post:${postId}`, "vote", {
+						targetId,
+						targetType,
+						upvotes: row.upvotes,
+						downvotes: row.downvotes,
+					});
+				}
+			}),
+	);
+}
