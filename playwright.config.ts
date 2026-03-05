@@ -33,11 +33,13 @@ export default defineConfig({
 		},
 	],
 
-	// Start vite dev server before running tests
+	// Start vite dev server before running tests.
+	// CI needs extra time: workerd (Cloudflare platform proxy) cold-starts on a
+	// 2-core runner, so 30s isn't enough. 120s gives comfortable headroom.
 	webServer: {
 		command: "pnpm dev",
 		url: BASE_URL,
 		reuseExistingServer: !process.env.CI,
-		timeout: 30_000,
+		timeout: process.env.CI ? 120_000 : 30_000,
 	},
 });
