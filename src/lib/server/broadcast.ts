@@ -1,7 +1,8 @@
 /**
- * Broadcast a real-time event to connected clients via Durable Objects.
+ * Broadcast a real-time event by inserting into the `live_events` D1 table.
+ * Clients poll this table for updates — no Durable Objects needed.
  * Fire-and-forget: never blocks or throws. CRUD operations are unaffected
- * whether DO is available, quota-exhausted, or completely down.
+ * whether the insert succeeds or fails.
  */
 export function broadcast(
 	platform: App.Platform | undefined,
@@ -9,20 +10,16 @@ export function broadcast(
 	event: string,
 	data: Record<string, unknown>,
 ) {
-	const liveRoom = platform?.env.LIVE_ROOM;
-	if (!liveRoom) return;
+	const db = platform?.env.DB;
+	if (!db) return;
 
-	const id = liveRoom.idFromName(channel);
-	const stub = liveRoom.get(id);
 	platform!.context.waitUntil(
-		stub
-			.fetch("https://do/broadcast", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ event, data }),
-			})
+		db
+			.prepare("INSERT INTO live_events (channel, event, data) VALUES (?, ?, ?)")
+			.bind(channel, event, JSON.stringify(data))
+			.run()
 			.catch(() => {
-				// DO unavailable (quota exhausted, internal error) — silently ignore.
+				// DB error — silently ignore.
 				// Real-time is additive; CRUD already succeeded before this call.
 			}),
 	);

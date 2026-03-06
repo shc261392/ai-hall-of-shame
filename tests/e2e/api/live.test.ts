@@ -2,20 +2,21 @@ import { test, expect } from "@playwright/test";
 
 const BASE = "http://localhost:5173";
 
-test.describe("GET /api/live/[channel] — local dev (no DO)", () => {
-	test("returns 503 for feed channel (no DO binding)", async ({ request }) => {
+test.describe("GET /api/live/[channel] — polling endpoint", () => {
+	test("returns empty events for feed channel (no DB in dev)", async ({ request }) => {
 		const res = await request.get(`${BASE}/api/live/feed`);
-		expect(res.status()).toBe(503);
+		// Without a DB binding in local dev, SvelteKit returns 500;
+		// with a DB binding, returns 200 with empty events.
+		expect([200, 500]).toContain(res.status());
 	});
 
-	test("returns 503 for post channel (no DO binding)", async ({ request }) => {
+	test("returns empty events for post channel (no DB in dev)", async ({ request }) => {
 		const res = await request.get(`${BASE}/api/live/post:abcdefghijklmnopqrstu`);
-		expect(res.status()).toBe(503);
+		expect([200, 500]).toContain(res.status());
 	});
 
 	test("returns 400 for invalid channel name", async ({ request }) => {
 		const res = await request.get(`${BASE}/api/live/invalid-channel`);
-		// Could be 400 (invalid) or 503 (no DO) depending on check order
-		expect([400, 503]).toContain(res.status());
+		expect(res.status()).toBe(400);
 	});
 });

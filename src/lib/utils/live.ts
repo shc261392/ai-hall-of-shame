@@ -1,11 +1,9 @@
 /**
- * Real-time connection manager with circuit breaker.
+ * Real-time connection manager using lightweight polling.
  *
- * Uses SSE (EventSource) for real-time updates via Durable Objects.
- * Implements exponential backoff with jitter on connection failures.
- * Circuit breaker: if DO fails repeatedly (5 times in 5 minutes),
- * marks DO as out-of-service for the entire page session.
- * Only retries on full page reload.
+ * Polls /api/live/:channel for recent events stored in D1.
+ * Pauses when the tab is hidden; resumes immediately on focus.
+ * No Durable Objects — stays well within Cloudflare free tier.
  */
 
 export type LiveEvent = {
@@ -15,58 +13,22 @@ export type LiveEvent = {
 
 type LiveHandler = (evt: LiveEvent) => void;
 
-const MAX_RETRIES = 3;
-const BASE_DELAY_MS = 2_000;
-const MAX_DELAY_MS = 30_000;
-const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1_000; // 5 minutes
-const CIRCUIT_BREAKER_THRESHOLD = 3;
-
-/** Session-scoped circuit breaker state (shared across all LiveConnections). */
-const circuitBreaker = {
-	failures: [] as number[],
-	open: false,
-
-	recordFailure() {
-		const now = Date.now();
-		this.failures.push(now);
-		// Prune failures outside the window
-		this.failures = this.failures.filter(
-			(t) => now - t < CIRCUIT_BREAKER_WINDOW_MS,
-		);
-		if (this.failures.length >= CIRCUIT_BREAKER_THRESHOLD) {
-			this.open = true;
-		}
-	},
-
-	recordSuccess() {
-		// A successful connection resets failure tracking
-		this.failures = [];
-		// Note: does NOT reset open state — that persists until page reload
-	},
-
-	isOpen() {
-		return this.open;
-	},
-};
-
-function delayWithJitter(attempt: number): number {
-	const exp = Math.min(BASE_DELAY_MS * 2 ** attempt, MAX_DELAY_MS);
-	// Full jitter: random value in [0, exp]
-	return Math.random() * exp;
-}
+const POLL_INTERVAL_MS = 30_000;
 
 export class LiveConnection {
-	private es: EventSource | null = null;
 	private handlers = new Set<LiveHandler>();
 	private channel: string;
-	private retries = 0;
 	private closed = false;
-	private retryTimer: ReturnType<typeof setTimeout> | null = null;
+	private pollTimer: ReturnType<typeof setInterval> | null = null;
+	private lastTs: string;
+	private polling = false;
 
 	constructor(channel: string) {
 		this.channel = channel;
+		this.lastTs = new Date().toISOString();
 		if (typeof window !== "undefined") {
-			this.connect();
+			this.startPolling();
+			document.addEventListener("visibilitychange", this.onVisibility);
 		}
 	}
 
@@ -77,66 +39,52 @@ export class LiveConnection {
 
 	close() {
 		this.closed = true;
-		if (this.retryTimer !== null) {
-			clearTimeout(this.retryTimer);
-			this.retryTimer = null;
+		this.stopPolling();
+		if (typeof document !== "undefined") {
+			document.removeEventListener("visibilitychange", this.onVisibility);
 		}
-		this.es?.close();
-		this.es = null;
 		this.handlers.clear();
 	}
 
-	private connect() {
-		if (this.closed) return;
-		if (circuitBreaker.isOpen()) return;
+	private onVisibility = () => {
+		if (document.hidden) {
+			this.stopPolling();
+		} else {
+			this.poll();
+			this.startPolling();
+		}
+	};
 
+	private startPolling() {
+		if (this.closed || this.pollTimer) return;
+		this.pollTimer = setInterval(() => this.poll(), POLL_INTERVAL_MS);
+	}
+
+	private stopPolling() {
+		if (this.pollTimer) {
+			clearInterval(this.pollTimer);
+			this.pollTimer = null;
+		}
+	}
+
+	private async poll() {
+		if (this.closed || this.polling) return;
+		this.polling = true;
 		try {
-			const es = new EventSource(`/api/live/${this.channel}`);
-
-			es.onopen = () => {
-				this.retries = 0;
-				circuitBreaker.recordSuccess();
+			const res = await fetch(`/api/live/${this.channel}?since=${encodeURIComponent(this.lastTs)}`);
+			if (!res.ok) return;
+			const body = (await res.json()) as {
+				events: LiveEvent[];
+				serverTime: string;
 			};
-
-			es.onerror = () => {
-				es.close();
-				this.es = null;
-				circuitBreaker.recordFailure();
-
-				if (circuitBreaker.isOpen()) return;
-
-				this.retries++;
-				if (this.retries < MAX_RETRIES) {
-					const delay = delayWithJitter(this.retries);
-					this.retryTimer = setTimeout(() => {
-						this.retryTimer = null;
-						this.connect();
-					}, delay);
-				}
-				// After max retries, stop — no real-time until page reload
-			};
-
-			for (const eventType of [
-				"vote",
-				"reaction",
-				"new_post",
-				"new_comment",
-				"delete",
-			]) {
-				es.addEventListener(eventType, (e: MessageEvent) => {
-					try {
-						const data = JSON.parse(e.data);
-						this.emit({ event: eventType, data });
-					} catch {
-						// Ignore malformed events
-					}
-				});
+			this.lastTs = body.serverTime;
+			for (const evt of body.events) {
+				this.emit(evt);
 			}
-
-			this.es = es;
 		} catch {
-			// EventSource constructor failed — no real-time updates
-			circuitBreaker.recordFailure();
+			// Network error — will retry on next interval
+		} finally {
+			this.polling = false;
 		}
 	}
 
