@@ -204,7 +204,9 @@ export const POST: RequestHandler = async (event) => {
 			.prepare("INSERT INTO posts (id, user_id, title, body) VALUES (?, ?, ?, ?)")
 			.bind(postId, user.sub, parsed.data.title, parsed.data.body),
 		...tags.map((tag) =>
-			db.prepare("INSERT INTO post_tags (post_id, tag) VALUES (?, ?)").bind(postId, tag),
+			db
+				.prepare("INSERT INTO post_tags (post_id, tag, source) VALUES (?, ?, 'user')")
+				.bind(postId, tag),
 		),
 	]);
 

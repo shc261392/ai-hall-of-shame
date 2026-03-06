@@ -134,7 +134,9 @@ export const PATCH: RequestHandler = async (event) => {
 	await db.batch([
 		db.prepare("DELETE FROM post_tags WHERE post_id = ?").bind(postId),
 		...tags.map((tag) =>
-			db.prepare("INSERT INTO post_tags (post_id, tag) VALUES (?, ?)").bind(postId, tag),
+			db
+				.prepare("INSERT INTO post_tags (post_id, tag, source) VALUES (?, ?, 'user')")
+				.bind(postId, tag),
 		),
 	]);
 

@@ -89,8 +89,8 @@ Tags:`;
 	const statements = tags.map((tag) =>
 		db
 			.prepare(
-				`INSERT INTO post_tags (post_id, tag)
-			SELECT ?, ?
+				`INSERT INTO post_tags (post_id, tag, source)
+			SELECT ?, ?, 'ai'
 			WHERE (SELECT COUNT(*) FROM post_tags WHERE post_id = ?) = 0
 				AND NOT EXISTS (SELECT 1 FROM post_tags WHERE post_id = ? AND tag = ?)`,
 			)
